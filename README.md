@@ -4,4 +4,4 @@ A personalised recommendation system using deep learning and a two-tower archite
 
 ## Project Status
 
-Phase 1 - Website and backend setup
+Phase 1 - Data collection (Cleaning etc)
