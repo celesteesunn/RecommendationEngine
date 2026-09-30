@@ -14,9 +14,9 @@ A context-aware fashion recommendation system based on the H&M Personalized Fash
 ## Team
 
 Samala Sunaina
-- Tejashvi Khandelwal
 - Siddhi Kale
 - Abhilash Kum
+- Tejashvi Khandelwal
 
 ---
 
