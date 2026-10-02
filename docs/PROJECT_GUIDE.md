@@ -6,8 +6,8 @@ built, what is on GitHub, how the finished system will work, and what comes next
 The [README](../README.md) is the short public summary. This guide is the long version, for
 understanding the project.
 
-**Status as of 2 Oct 2026:** Week 1, Day 1. The project setup is done and waiting for review
-in PR #1. No data has been downloaded or processed yet.
+**Status as of 2 Oct 2026:** Week 1, Day 1. The project setup is merged into `main`, and
+`main` is the only branch. No data has been downloaded or processed yet.
 
 ---
 
@@ -67,9 +67,9 @@ and their recent shopping.
 | Dependencies pinned | Exact package versions, checked to install together |
 | Config file | One settings file for the whole project |
 | Download script | Fetches the 3 H&M CSV files from Kaggle |
-| README rewritten | Matches the project brief |
+| README rewritten | Matches the project brief; combines Sunaina's H&M write-up with the setup docs |
 | Tests | 3 tests, all passing |
-| PR opened | PR #1, `feature/project-setup` into `main` |
+| Merged into `main` | PR #1 merged; extra branches deleted, so `main` is the only branch |
 
 ### Not started
 
@@ -84,8 +84,6 @@ and their recent shopping.
 | Kaggle API token in `C:\Users\TEJASHVI\.kaggle\kaggle.json` | Needed to download the data |
 | Accept the H&M competition rules on Kaggle | Kaggle refuses downloads until you do |
 | `gh auth login` | Lets Claude create and track pull requests from the command line |
-| Get PR #1 reviewed and merged | So `main` has the new structure |
-| Close PR #2 | It duplicates PR #1 (see [section 3](#3-github-branches-pull-requests-and-history)) |
 
 ---
 
@@ -95,19 +93,23 @@ and their recent shopping.
 
 ### Branches
 
-| Branch | Latest commit | What it is |
-|---|---|---|
-| `main` | `569731c`, Siddhi, 2 Oct: "Update team member list in README" | The official version. It still has the old README and no code. |
-| `feature/project-setup` | `7b7ac7c`, 2 Oct: "Merge main into feature/project-setup" | **The active work.** All the setup described in this guide. Up to date with `main`. |
-| `Tejashvi` | `ddb9343`, 2 Oct: "chore: set up H&M project structure…" | A copy of the first setup commit, without the later merge. **Duplicate, not needed.** |
-| `dataset/movielens-1m` | **Deleted** from GitHub | celesteesunn's MovieLens data-inspection notebook (16–18 Sep). Someone deleted it after the switch to H&M. |
+**`main` is the only branch.** All work is merged into it.
+
+| Former branch | What happened to it |
+|---|---|
+| `feature/project-setup` | All the setup work in this guide. Merged into `main` (PR #1), then deleted. |
+| `Tejashvi` | A duplicate of the first setup commit. Its only commit is already in `main`, so nothing was lost. Deleted. |
+| `dataset/movielens-1m` | celesteesunn's MovieLens data-inspection notebook (16–18 Sep). Deleted by a teammate after the switch to H&M. |
+
+For new work, create a short-lived branch, merge it through a pull request, then delete it
+(see [section 11](#11-team-workflow-rules)).
 
 ### Pull requests
 
-| PR | From → into | Status | Notes |
-|---|---|---|---|
-| [#1](https://github.com/celesteesunn/RecommendationEngine/pull/1) | `feature/project-setup` → `main` | Open, can merge cleanly | **The one to keep.** It includes Siddhi's latest team-list change. |
-| [#2](https://github.com/celesteesunn/RecommendationEngine/pull/2) | `Tejashvi` → `main` | Open | **Duplicate of #1.** It's missing the merge with `main`, so its README would conflict with Siddhi's change. Recommendation: close it, and delete the `Tejashvi` branch. |
+| PR | From → into | Result |
+|---|---|---|
+| [#1](https://github.com/celesteesunn/RecommendationEngine/pull/1) | `feature/project-setup` → `main` | Merged |
+| [#2](https://github.com/celesteesunn/RecommendationEngine/pull/2) | `Tejashvi` → `main` | Duplicate of #1. Its commit is part of `main`, so GitHub marks it merged too. |
 
 ### Commit history
 
@@ -117,18 +119,32 @@ and their recent shopping.
 2026-09-16  siddhi         Set up structure: requirements.txt, .gitignore
 2026-09-16  celesteesunn   README: add MovieLens / H&M / Blinkit comparison plan
 2026-09-30  Tejashvi       Fix team member order in README
-            ── branch: feature/project-setup ──
-2026-10-02  Tejashvi       Set up H&M project structure and dependencies   (ddb9343)
-2026-10-02  siddhi         Update team member list in README (on main)    (569731c)
-2026-10-02  Tejashvi       Merge main into feature/project-setup           (7b7ac7c)
+2026-10-02  Tejashvi       Set up H&M project structure and dependencies
+2026-10-02  siddhi         Update team member list in README
+2026-10-02  celesteesunn   Remove Instacart dataset from README
+2026-10-02  celesteesunn   Update README with H&M dataset details
+2026-10-02  Tejashvi       Add project guide; merge main and resolve README conflicts
+2026-10-02  Tejashvi       Merge PR #1 (project setup) into main
 ```
 
 ### What changed in the project's direction
 
 Until 30 Sep, the plan in the README was to **compare three datasets** (MovieLens, H&M,
-Blinkit). On 2 Oct, after reading the brief, we switched to **H&M only**, because the brief
-names it as the primary data source. Teammates should know about this change. See
-[section 7](#7-decisions-made-and-why).
+Blinkit). On 2 Oct, after reading the brief, the team switched to **H&M only**, because the
+brief names it as the primary data source. Sunaina rewrote the README's dataset section for
+H&M the same day. See [section 7](#7-decisions-made-and-why).
+
+### How the README conflicts were resolved
+
+Three people edited the README on 2 Oct. The merged version keeps everyone's work:
+
+| Source | Sections kept |
+|---|---|
+| Sunaina | Intro, Project Pipeline, Dataset description, How We Use the Dataset, Two-Tower diagram, Evaluation |
+| Siddhi | Team list |
+| Setup work | Dataset file table, System Architecture, Tech Stack table, Project Structure, Setup, Roadmap, Contributing |
+
+The two Tech Stack lists were combined into one table (FAISS was added).
 
 ### Related folder outside this repo
 
@@ -438,7 +454,7 @@ Week 2. The order of the tasks is what matters.)
 
 | Day | Task | Output | Status |
 |---|---|---|---|
-| 1 | Repo setup, dependencies, config, download script | PR #1 | ✅ Done, in review |
+| 1 | Repo setup, dependencies, config, download script | PR #1 | ✅ Done, merged |
 | 1–3 | PySpark: load CSVs, fix types, handle missing values, flag cold-start users and items, save Parquet | `src/data/clean.py`, `data/processed/` | ⏳ Next (needs WSL2 and Kaggle) |
 
 ### Week 2: deep learning model
@@ -512,11 +528,12 @@ How this repo follows that:
 
 | Rule | Practice |
 |---|---|
-| Branches | Create from `main`: `feature/<name>`, `fix/<name>`, `docs/<name>` |
+| Branches | `main` is the only long-lived branch. For each piece of work, create a short-lived branch from `main`: `feature/<name>`, `fix/<name>`, `docs/<name>` |
 | Commit messages | Start with a type: `feat:`, `fix:`, `docs:`, `chore:`, `test:` |
-| Merging | Always through a pull request into `main`, never a direct push |
-| Before a PR | Merge the latest `main` into your branch (as done for PR #1) |
-| One PR per piece of work | Avoid duplicates like PR #2 |
+| Merging | Through a pull request into `main` |
+| After merging | Delete the branch, on GitHub and locally |
+| Before starting work | Pull the latest `main`, so teammates' changes don't cause conflicts |
+| One PR per piece of work | Don't open a second PR for the same branch or commits (PR #2 duplicated PR #1) |
 
 ---
 
@@ -524,14 +541,12 @@ How this repo follows that:
 
 ### For you (in order)
 
-1. **Close PR #2** on GitHub, and delete the `Tejashvi` branch. It duplicates PR #1.
-2. **Ask a teammate to review and merge PR #1.**
-3. **Tell the team** the project has switched to H&M only. The MovieLens branch has already been
-   deleted.
-4. **Install WSL2:** `wsl --install -d Ubuntu` in an Administrator PowerShell, then restart.
-5. **Set up Kaggle:** accept the competition rules, then create a token and save it as
+1. **Tell the team** that `main` now has the project setup, and that everyone should run
+   `git pull` on `main` before starting new work.
+2. **Install WSL2:** `wsl --install -d Ubuntu` in an Administrator PowerShell, then restart.
+3. **Set up Kaggle:** accept the competition rules, then create a token and save it as
    `C:\Users\TEJASHVI\.kaggle\kaggle.json`.
-6. **Log in to GitHub CLI:** `gh auth login`.
+4. **Log in to GitHub CLI:** `gh auth login`.
 
 ### Then, for Claude (Week 1, Days 1–3, on `feature/spark-etl`)
 
@@ -569,4 +584,11 @@ git add <files>
 git commit -m "feat: describe the change"
 git push -u origin feature/<name>
 gh pr create --base main                  # open a pull request
+
+# After the PR is merged: clean up
+git switch main
+git pull
+git branch -d feature/<name>              # delete the local branch
+git push origin --delete feature/<name>   # delete it on GitHub
+git fetch --prune                         # forget deleted remote branches
 ```
