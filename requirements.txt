@@ -1,7 +1,26 @@
-pandas
-numpy
-scikit-learn
-tensorflow
-tensorflow-recommenders
-fastapi
-uvicorn
+# Core runtime dependencies (Python 3.11 / 3.12)
+# Airflow is installed separately: see requirements-airflow.txt
+
+# Data processing
+numpy==1.26.4
+pandas==2.2.3
+pyarrow==17.0.0
+pyspark==3.5.6
+scikit-learn==1.5.2
+
+# Deep learning
+# TFRS runs on Keras 2 via tf-keras; set TF_USE_LEGACY_KERAS=1 (see .env.example)
+tensorflow==2.18.1
+tf-keras==2.18.0
+tensorflow-recommenders==0.7.7
+
+# Retrieval and serving
+faiss-cpu==1.9.0
+redis==5.2.1
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+pydantic==2.10.4
+
+# Utilities
+kaggle==1.7.4.5
+pyyaml==6.0.2

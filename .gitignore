@@ -1,8 +1,33 @@
+# Python
 .venv/
+venv/
 __pycache__/
 *.pyc
+.pytest_cache/
+
+# Notebooks
 .ipynb_checkpoints/
+
+# Secrets
 .env
-data/raw/
-models/*.h5
-models/*.keras
+kaggle.json
+
+# Data (downloaded or generated, never committed)
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+*.zip
+*.parquet
+
+# Model artifacts
+models/*
+!models/.gitkeep
+
+# Spark
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Airflow
+airflow/logs/
