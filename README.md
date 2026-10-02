@@ -9,7 +9,6 @@ sequences and item context to generate personalised, real-time recommendations.
 
 - Samala Sunaina
 - Siddhi Kale
-- Abhilash Kum
 - Tejashvi Khandelwal
 
 ## Architecture
