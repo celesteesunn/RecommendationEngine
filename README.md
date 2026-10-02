@@ -5,6 +5,9 @@ A deep learning recommendation system for fashion e-commerce, built on the
 dataset. A two-tower neural network combines user metadata, historical purchase
 sequences and item context to generate personalised, real-time recommendations.
 
+New to the project? Read the [Project Guide](docs/PROJECT_GUIDE.md) for a full walkthrough
+of the code, design decisions, current status and next steps.
+
 ## Team
 
 - Samala Sunaina
@@ -58,7 +61,7 @@ Only these tabular files are used; the ~29 GB product images are not downloaded.
 ├── data/
 │   ├── raw/          # Kaggle CSVs (not committed)
 │   └── processed/    # Parquet outputs from PySpark (not committed)
-├── docs/             # Architecture diagrams
+├── docs/             # Project guide and architecture diagrams
 ├── models/           # Trained models and embeddings (not committed)
 ├── notebooks/        # Exploration only
 ├── src/
