@@ -4,7 +4,8 @@ A plain-language guide to everything in this repository: what the project is, wh
 built, what is on GitHub, how the finished system will work, and what comes next.
 
 The [README](../README.md) is the short public summary. This guide is the long version, for
-understanding the project.
+understanding the project. For the full target architecture, the final outputs and the
+week-by-week plan, see the [Project Blueprint](PROJECT_BLUEPRINT.md).
 
 **Status as of 2 Oct 2026:** Week 1, Day 1. The project setup is merged into `main`, and
 `main` is the only branch. No data has been downloaded or processed yet.

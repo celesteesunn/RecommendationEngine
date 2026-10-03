@@ -5,8 +5,12 @@ A deep learning-based recommendation system for personalised fashion recommendat
 dataset. A two-tower neural network combines user metadata, historical purchase sequences and
 item context to generate personalised, real-time recommendations.
 
-New to the project? Read the [Project Guide](docs/PROJECT_GUIDE.md) for a full walkthrough
-of the code, design decisions, current status and next steps.
+New to the project? Two documents explain it in depth:
+
+- [Project Blueprint](docs/PROJECT_BLUEPRINT.md): the full architecture, the final outputs for
+  end users and the system, and the week-by-week work plan.
+- [Project Guide](docs/PROJECT_GUIDE.md): the current state of the repo, design decisions,
+  status and next steps.
 
 ## Project Pipeline
 
