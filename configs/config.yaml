@@ -24,8 +24,8 @@ cleaning:
   cold_start_min_purchases: 5
 
 spark:
-  # Sized for a 16 GB laptop; Spark spills to disk beyond this.
-  driver_memory: 8g
+  # WSL2 gets half of a 16 GB laptop's RAM (about 7.5 GB); Spark spills to disk beyond this.
+  driver_memory: 5g
   shuffle_partitions: 64
 
 model:

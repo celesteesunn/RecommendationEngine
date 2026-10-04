@@ -543,7 +543,7 @@ Status: ✅ done, ⏳ next, ⬜ planned.
 | Task | Output | Done when | Status |
 |---|---|---|---|
 | Repo setup, dependencies, config, download script | Repo structure, `download.py` | Merged into `main` | ✅ |
-| Environment: WSL2, Python, Java, GPU check | Working environment | `pytest` passes in WSL; TF sees the GPU | ⏳ (needs WSL2 installed) |
+| Environment: WSL2, Python, Java, GPU check | Working environment, `scripts/setup_wsl.sh` | `pytest` passes in WSL; TF sees the GPU | ⏳ (`pytest` passes in WSL; GPU needs CUDA libraries) |
 | Download data | `data/raw/*.csv` | 3 files present | ✅ (row counts match Kaggle) |
 | PySpark cleaning | `src/data/clean.py`, Parquet | Row counts and missing-value checks pass | ⏳ (code + tests done; full run needs WSL2) |
 | Cold-start flags | Flags in Parquet | Cold-start counts reported | ⬜ |

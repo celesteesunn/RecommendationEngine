@@ -206,6 +206,15 @@ quick, because finished downloads are cached.
 
 **Output.** A ready environment at `~/venvs/reco`, plus a `.env` settings file in the project.
 
+**Result of the checks.**
+
+| Check | Result |
+|---|---|
+| Python, TensorFlow 2.18.1, TF Recommenders 0.7.7 | ✅ Import and run |
+| Tests (`pytest`) | ✅ 10 passed, including the Spark cleaning tests that could not save files on Windows |
+| `tests/test_recommender.py` | ❌ Imports a module (`recommendation_engine`) that does not exist in the repository. It came from an earlier teammate commit; fixing it is task S1 in the team tasks. Run the other tests with `pytest --ignore=tests/test_recommender.py` until then. |
+| TensorFlow sees the GPU | ⏳ Not yet: TensorFlow needs NVIDIA's CUDA libraries, a separate ~3 GB download. Needed for Week 2 training. |
+
 ---
 
 ## What comes next

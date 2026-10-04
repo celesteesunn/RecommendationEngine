@@ -163,14 +163,17 @@ These metrics measure how effectively the system retrieves relevant products for
 The project runs on Linux (WSL2 Ubuntu on Windows), because Airflow and Redis do
 not run natively on Windows and TensorFlow GPU support requires Linux.
 
+Inside Ubuntu, from the repository root:
+
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-dev.txt
-cp .env.example .env
+sudo apt update && sudo apt install -y openjdk-17-jdk-headless python3-venv
+bash scripts/setup_wsl.sh
+source ~/venvs/reco/bin/activate
 ```
 
-Spark needs Java 17 (`sudo apt install openjdk-17-jdk`).
+The script installs Python 3.11 (Ubuntu's own Python is too new for TensorFlow 2.18), creates
+the environment in `~/venvs/reco` (outside the repository, because the Windows drive is slow
+from WSL), installs `requirements-dev.txt` and creates `.env` from `.env.example`.
 
 ### Download the data
 
@@ -181,6 +184,18 @@ Spark needs Java 17 (`sudo apt install openjdk-17-jdk`).
 ```bash
 python -m src.data.download
 ```
+
+Without a token, download the three zip files from the competition's Data tab and extract
+`transactions_train.csv`, `customers.csv` and `articles.csv` into `data/raw/`.
+
+### Clean the data
+
+```bash
+python -m src.data.clean
+```
+
+Writes cleaned Parquet to `data/processed/` and row counts to
+`data/processed/cleaning_summary.json`.
 
 ### Run tests
 
