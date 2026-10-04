@@ -329,11 +329,84 @@ Tests check both rules on a tiny made-up shop where every right answer is known 
 
 ---
 
+## Step 9: Vocabularies (`src/features/vocab.py`)
+
+**What we did.** Wrote the code that gives every ID and category value its own number.
+
+**Why.** A neural network only does maths on numbers. It cannot read "Trousers" or a
+64-character customer ID, so each value gets an index: `Trousers → 7`, `Dress → 3`, and so on.
+
+**Purpose of the rules.**
+
+| Index | Meaning | Why |
+|---|---|---|
+| 0 | Padding | Customers with fewer than 20 past purchases get empty slots in their history |
+| 1 | Unknown | A new customer or product the model never saw maps here instead of crashing it |
+| 2, 3, … | Known values, most common first | The actual vocabulary |
+
+These lists are saved **with every trained model**, so the API in Week 3 uses exactly the same
+numbers as training did. A mismatch would silently give wrong recommendations.
+
+**A memory fix.** The 3.36 million training rows hold about 67 million product IDs in their
+histories. Loaded the normal Python way, that is over 4 GB, more than WSL has. The encoder
+works directly on the Parquet data (with Arrow) and needs about 300 MB instead.
+
+**Output.** `models/<version>/vocab/`: one text file per column, written when the model is
+trained. 5 tests check the rules.
+
+---
+
+## Step 10: Metrics and baselines (`src/models/metrics.py`, `src/models/baselines.py`)
+
+**What we did.** Wrote the scoring rules, built three simple recommenders, and scored them on
+the test week.
+
+**Why.** A deep learning model takes weeks to build. If a one-line rule works just as well,
+the model is not worth it. These simple methods set the bar the model has to clear.
+
+**The metrics** (each compares our list with what the customer really bought in the test week):
+
+| Metric | Question | Example |
+|---|---|---|
+| Recall@12 | What share of the products they bought were in our top 12? | Bought 4, 1 was in our 12 → 0.25 |
+| Recall@50, @100 | The same for the top 50 and 100 | The vector search hands 100 candidates to the next step, so the right product must be in them |
+| NDCG@12 | Were the hits near the **top** of the list? | A hit at position 1 counts more than at position 12 |
+| MAP@12 | The Kaggle competition's own metric | Lets us compare with public results |
+
+**The baselines:**
+
+| Baseline | Rule |
+|---|---|
+| Global popularity | Everyone gets the 100 best-sellers of the last training week |
+| Age-group popularity | The best-sellers among customers in the same age band |
+| Repurchase | The customer's own most-bought products from the 12 weeks, then the best-sellers |
+
+**How long it takes.** About 1.5 minutes.
+
+**Output.** `reports/baselines.md` and `reports/baselines.json`. Results for all 68,984 test
+customers:
+
+| Baseline | Recall@12 | Recall@100 | MAP@12 |
+|---|---|---|---|
+| Global popularity | 0.0255 | 0.1181 | 0.0088 |
+| Age-group popularity | 0.0280 | 0.1269 | 0.0095 |
+| **Repurchase** | **0.0518** | **0.1442** | **0.0227** |
+
+**What this means.**
+
+- Fashion is hard to predict: even the best simple rule finds only 5% of what people buy in
+  its top 12. These numbers match public results for this Kaggle competition, which gives
+  confidence that the pipeline is correct.
+- **People rebuy what they bought before.** Repurchase is twice as good as best-sellers. It is
+  the bar the two-tower model has to beat, and a known tough one.
+- Age groups help a little over plain best-sellers (0.0280 vs 0.0255), which supports using the
+  age-group fallback for cold customers.
+
+---
+
 ## What comes next
 
 | Next step | Why | Output |
 |---|---|---|
-| Vocabularies (`src/features/vocab.py`) | The model works with numbers, so every ID and category needs one | Lookup lists saved with the model |
-| Baselines and metrics (`src/models/baselines.py`) | Simple methods the model has to beat | `reports/baselines.md` |
 | Two-tower model and training | The deep learning model itself | A trained model in `models/` |
 | Evaluation | Prove whether the model beats the baselines | `reports/evaluation_<version>.md` |

@@ -1,0 +1,80 @@
+{
+  "global_popularity": {
+    "all": {
+      "customers": 68984,
+      "recall@12": 0.0255,
+      "recall@50": 0.07294,
+      "recall@100": 0.11812,
+      "ndcg@12": 0.01576,
+      "map@12": 0.00875
+    },
+    "warm": {
+      "customers": 33168,
+      "recall@12": 0.02465,
+      "recall@50": 0.07265,
+      "recall@100": 0.11704,
+      "ndcg@12": 0.01612,
+      "map@12": 0.00907
+    },
+    "cold": {
+      "customers": 35816,
+      "recall@12": 0.0263,
+      "recall@50": 0.07321,
+      "recall@100": 0.11911,
+      "ndcg@12": 0.01542,
+      "map@12": 0.00845
+    }
+  },
+  "age_group_popularity": {
+    "all": {
+      "customers": 68984,
+      "recall@12": 0.02798,
+      "recall@50": 0.07857,
+      "recall@100": 0.12689,
+      "ndcg@12": 0.01708,
+      "map@12": 0.0095
+    },
+    "warm": {
+      "customers": 33168,
+      "recall@12": 0.02722,
+      "recall@50": 0.07712,
+      "recall@100": 0.12385,
+      "ndcg@12": 0.01732,
+      "map@12": 0.00967
+    },
+    "cold": {
+      "customers": 35816,
+      "recall@12": 0.02868,
+      "recall@50": 0.07992,
+      "recall@100": 0.12972,
+      "ndcg@12": 0.01686,
+      "map@12": 0.00934
+    }
+  },
+  "repurchase": {
+    "all": {
+      "customers": 68984,
+      "recall@12": 0.05177,
+      "recall@50": 0.10097,
+      "recall@100": 0.14422,
+      "ndcg@12": 0.03424,
+      "map@12": 0.02274
+    },
+    "warm": {
+      "customers": 33168,
+      "recall@12": 0.06366,
+      "recall@50": 0.11557,
+      "recall@100": 0.15754,
+      "ndcg@12": 0.0409,
+      "map@12": 0.02613
+    },
+    "cold": {
+      "customers": 35816,
+      "recall@12": 0.04075,
+      "recall@50": 0.08745,
+      "recall@100": 0.13189,
+      "ndcg@12": 0.02808,
+      "map@12": 0.0196
+    }
+  }
+}

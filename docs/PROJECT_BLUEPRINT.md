@@ -554,8 +554,8 @@ Status: ✅ done, ⏳ next, ⬜ planned.
 | Task | Output | Done when | Status |
 |---|---|---|---|
 | Contextual features (time, recency, popularity over time) | `src/features/build_features.py` | Feature tables written | ✅ (3.36M training examples; see Work Log step 8) |
-| Vocabularies | `src/features/vocab.py` | Lookup tables saved | ⬜ |
-| Baselines | `src/models/baselines.py` | Baseline metrics recorded | ⬜ |
+| Vocabularies | `src/features/vocab.py` | Lookup tables saved | ✅ (saved with each model) |
+| Baselines | `src/models/baselines.py` | Baseline metrics recorded | ✅ (`reports/baselines.md`; repurchase MAP@12 0.0227) |
 | Two-tower model | `src/models/two_tower.py` | Model builds; a training step runs | ⬜ |
 | Training with negative sampling | `src/models/train.py` | Model trained and saved | ⬜ |
 | Evaluation: Recall@K, NDCG | `src/models/evaluate.py`, report | Beats the popularity baseline | ⬜ |
