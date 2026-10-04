@@ -19,6 +19,15 @@ split:
   # Only the most recent N weeks are used for training (older fashion data is stale).
   train_weeks: 12
 
+cleaning:
+  # Customers with fewer purchases than this in the training window are flagged cold-start.
+  cold_start_min_purchases: 5
+
+spark:
+  # Sized for a 16 GB laptop; Spark spills to disk beyond this.
+  driver_memory: 8g
+  shuffle_partitions: 64
+
 model:
   embedding_dim: 64
   history_length: 20

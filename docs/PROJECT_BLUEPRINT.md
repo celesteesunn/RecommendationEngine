@@ -544,8 +544,8 @@ Status: ✅ done, ⏳ next, ⬜ planned.
 |---|---|---|---|
 | Repo setup, dependencies, config, download script | Repo structure, `download.py` | Merged into `main` | ✅ |
 | Environment: WSL2, Python, Java, GPU check | Working environment | `pytest` passes in WSL; TF sees the GPU | ⏳ (needs WSL2 installed) |
-| Download data | `data/raw/*.csv` | 3 files present | ⏳ (needs Kaggle token) |
-| PySpark cleaning | `src/data/clean.py`, Parquet | Row counts and missing-value checks pass | ⬜ |
+| Download data | `data/raw/*.csv` | 3 files present | ✅ (row counts match Kaggle) |
+| PySpark cleaning | `src/data/clean.py`, Parquet | Row counts and missing-value checks pass | ⏳ (code + tests done; full run needs WSL2) |
 | Cold-start flags | Flags in Parquet | Cold-start counts reported | ⬜ |
 | Data-quality report | `reports/data_quality.md` | Committed | ⬜ |
 

@@ -19,6 +19,8 @@ data/processed/*
 !data/processed/.gitkeep
 *.zip
 *.parquet
+# Manual Kaggle download, extracted into data/raw/
+Dataset/
 
 # Model artifacts
 models/*
