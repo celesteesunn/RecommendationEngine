@@ -12,14 +12,14 @@ Outputs (in data/processed/):
 
 import json
 import sys
-from pathlib import Path
 
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql import types as T
 from pyspark.storagelevel import StorageLevel
 
 from src.config import load_config, project_path
+from src.spark import create_spark
 
 TRANSACTIONS_SCHEMA = T.StructType([
     T.StructField("t_dat", T.StringType()),
@@ -56,22 +56,6 @@ ARTICLE_COLUMNS = [
 
 ARTICLE_ID_LENGTH = 10
 UNKNOWN = "UNKNOWN"
-
-
-def create_spark(config: dict) -> SparkSession:
-    spark_config = config["spark"]
-    local_dir = Path(spark_config["local_dir"]).expanduser()
-    local_dir.mkdir(parents=True, exist_ok=True)
-    return (
-        SparkSession.builder
-        .appName("hm-clean")
-        .master("local[*]")
-        .config("spark.driver.memory", spark_config["driver_memory"])
-        .config("spark.sql.shuffle.partitions", spark_config["shuffle_partitions"])
-        .config("spark.local.dir", str(local_dir))
-        .config("spark.sql.session.timeZone", "UTC")
-        .getOrCreate()
-    )
 
 
 def normalize_article_id(column: str = "article_id") -> F.Column:
@@ -200,7 +184,7 @@ def main() -> int:
         print(f"Missing raw files in {raw_dir}: {', '.join(missing)}", file=sys.stderr)
         return 1
 
-    spark = create_spark(config)
+    spark = create_spark(config, "hm-clean")
     read_csv = lambda name, schema=None: spark.read.csv(  # noqa: E731
         str(raw_dir / name), header=True, schema=schema, inferSchema=schema is None
     )

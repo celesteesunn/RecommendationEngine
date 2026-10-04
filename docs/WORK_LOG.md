@@ -23,7 +23,7 @@ Week 1 is about the first two boxes: getting the data and cleaning it.
 ```text
  [1] Get data  ──►  [2] Clean  ──►  [3] Features  ──►  [4] Train model  ──►  [5] Serve via API
    Week 1            Week 1           Week 2              Week 2               Weeks 3–4
-   ✅ done           ✅ done          ⬜                  ⬜                    ⬜
+   ✅ done           ✅ done          ✅                  ⬜                    ⬜
 ```
 
 ---
@@ -276,10 +276,64 @@ into one label; every product ID is 10 characters; all tests still pass.
 
 ---
 
+## Step 8: Build the features (`src/features/build_features.py`)
+
+**What we did.** Wrote and ran a second PySpark job that turns the clean purchases into the
+inputs the model learns from, and splits the data into training and test sets.
+
+**Why.** A model cannot learn from a raw list of purchases. It needs *facts* about the
+customer, the product and the moment of the purchase, called **features**. For example: this
+customer is 25–34, usually shops online, last bought 7 days ago, and it is a Wednesday in
+September; this product is a dark blue pair of trousers that sold 800 times last week.
+
+**Purpose of each feature group (from the blueprint):**
+
+| Group | Features | Why the model needs it |
+|---|---|---|
+| Customer | Age group, club status, newsletter setting | People of different ages and habits buy different things |
+| Customer | Last 20 products bought | The strongest signal: what you bought says what you like |
+| Customer | Purchases and average price (12 weeks), online share | How active and how price-sensitive the customer is |
+| Product | Type, colour, garment group, department, index group, price band | Lets the model link similar products, even new ones |
+| Product | Sales in the last 1, 4 and 12 weeks | **Popularity over time**: what is trending right now |
+| Context | Day of week, month, online or in store, days since last purchase | **Time of purchase**: the same person shops differently on a Saturday in summer |
+
+**The most important rule: no peeking into the future.** If the model could see test-week
+purchases while training, it would look brilliant in testing and fail in real life. So:
+
+- All features are calculated **as of week 103**, the last training week. The test week (104)
+  is invisible to them.
+- For each training example, the history contains only purchases from **earlier days**, never
+  from the same day, otherwise the answer would be in the question.
+
+Tests check both rules on a tiny made-up shop where every right answer is known in advance.
+
+**How long it takes.** About 4.5 minutes (267 seconds).
+
+**Output.** Four new tables in `data/processed/`, plus `features_summary.json`:
+
+| Table | Rows | One row is | Used for |
+|---|---|---|---|
+| `train/` | 3,359,320 | One purchase in weeks 92–103, with its context and the customer's history before that day | Training examples for the model |
+| `user_features/` | 1,371,980 | One customer, as of week 103 | The customer side of the model; later loaded into Redis for serving |
+| `item_features/` | 105,542 | One product, as of week 103 | The product side of the model |
+| `test/` | 68,984 | One customer who bought in the test week, and what they bought (3.1 products on average) | Checking the model's predictions |
+
+**What the numbers say.**
+
+- 505,310 customers and 41,376 products appear in the training examples. Only those 41,376
+  products sold in the 12 weeks, so they are the ones the model will rank.
+- 215,691 training purchases (6%) have no history at all: the customer's first-ever purchase.
+- Of the 68,984 test customers, **33,168 are warm** (5 or more purchases in the training
+  window) and **35,816 are cold**. Cold customers are more than half of the people we have to
+  recommend for, which confirms the cold-start fallback matters.
+
+---
+
 ## What comes next
 
 | Next step | Why | Output |
 |---|---|---|
-| Install the CUDA libraries so TensorFlow sees the GPU | Training on the RTX 2050 is much faster than on the CPU | The GPU is listed by TensorFlow |
-| Data-quality report (`reports/data_quality.md`) | Week 1 deliverable; documents the problems above for the team and reviewers | A committed report |
-| Week 2: `src/features/build_features.py` | Turn clean data into what the model learns from (age group, favourite channel, product popularity over time, day of week) | Feature tables, plus the train/test split |
+| Vocabularies (`src/features/vocab.py`) | The model works with numbers, so every ID and category needs one | Lookup lists saved with the model |
+| Baselines and metrics (`src/models/baselines.py`) | Simple methods the model has to beat | `reports/baselines.md` |
+| Two-tower model and training | The deep learning model itself | A trained model in `models/` |
+| Evaluation | Prove whether the model beats the baselines | `reports/evaluation_<version>.md` |

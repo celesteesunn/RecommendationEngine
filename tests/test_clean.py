@@ -4,8 +4,6 @@ import pytest
 
 pytest.importorskip("pyspark")
 
-from pyspark.sql import SparkSession  # noqa: E402
-
 from src.data.clean import (  # noqa: E402
     ARTICLE_COLUMNS,
     add_cold_start_flags,
@@ -15,18 +13,6 @@ from src.data.clean import (  # noqa: E402
     keep_known_ids,
     training_weeks,
 )
-
-
-@pytest.fixture(scope="module")
-def spark():
-    session = (
-        SparkSession.builder.master("local[1]")
-        .config("spark.sql.shuffle.partitions", 1)
-        .config("spark.ui.enabled", "false")
-        .getOrCreate()
-    )
-    yield session
-    session.stop()
 
 
 @pytest.fixture

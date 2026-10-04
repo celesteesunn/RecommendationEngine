@@ -553,7 +553,7 @@ Status: ✅ done, ⏳ next, ⬜ planned.
 
 | Task | Output | Done when | Status |
 |---|---|---|---|
-| Contextual features (time, recency, popularity over time) | `src/features/build_features.py` | Feature tables written | ⬜ |
+| Contextual features (time, recency, popularity over time) | `src/features/build_features.py` | Feature tables written | ✅ (3.36M training examples; see Work Log step 8) |
 | Vocabularies | `src/features/vocab.py` | Lookup tables saved | ⬜ |
 | Baselines | `src/models/baselines.py` | Baseline metrics recorded | ⬜ |
 | Two-tower model | `src/models/two_tower.py` | Model builds; a training step runs | ⬜ |

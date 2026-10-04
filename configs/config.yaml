@@ -23,6 +23,14 @@ cleaning:
   # Customers with fewer purchases than this in the training window are flagged cold-start.
   cold_start_min_purchases: 5
 
+features:
+  # Product popularity is counted over these recent windows (in weeks).
+  popularity_weeks: [1, 4, 12]
+  # Products are split into this many price bands (equal-sized groups by price).
+  price_buckets: 10
+  # "Days since last purchase" is capped here; first-ever purchases also get this value.
+  max_days_since: 365
+
 spark:
   # WSL2 gets half of a 16 GB laptop's RAM (about 7.5 GB); Spark spills to disk beyond this.
   driver_memory: 4g
@@ -37,6 +45,11 @@ model:
   batch_size: 4096
   learning_rate: 0.05
   epochs: 5
+  # Share of training examples held out to watch the validation loss.
+  validation_share: 0.02
+  # Stop when the validation loss has not improved for this many epochs.
+  early_stopping_patience: 1
+  seed: 42
 
 evaluation:
   k_values: [12, 50, 100]
