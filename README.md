@@ -167,6 +167,9 @@ Inside Ubuntu, from the repository root:
 
 ```bash
 sudo apt update && sudo apt install -y openjdk-17-jdk-headless python3-venv
+# Let Linux tools set file permissions on the Windows drive (Spark needs this), then
+# run `wsl --shutdown` in Windows PowerShell and reopen Ubuntu:
+printf '\n[automount]\noptions = "metadata,uid=1000,gid=1000,umask=022"\n' | sudo tee -a /etc/wsl.conf
 bash scripts/setup_wsl.sh
 source ~/venvs/reco/bin/activate
 ```
@@ -195,7 +198,7 @@ python -m src.data.clean
 ```
 
 Writes cleaned Parquet to `data/processed/` and row counts to
-`data/processed/cleaning_summary.json`.
+`data/processed/cleaning_summary.json` (about 5 minutes on a 16-core laptop).
 
 ### Run tests
 

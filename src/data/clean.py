@@ -12,6 +12,7 @@ Outputs (in data/processed/):
 
 import json
 import sys
+from pathlib import Path
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
@@ -59,12 +60,15 @@ UNKNOWN = "UNKNOWN"
 
 def create_spark(config: dict) -> SparkSession:
     spark_config = config["spark"]
+    local_dir = Path(spark_config["local_dir"]).expanduser()
+    local_dir.mkdir(parents=True, exist_ok=True)
     return (
         SparkSession.builder
         .appName("hm-clean")
         .master("local[*]")
         .config("spark.driver.memory", spark_config["driver_memory"])
         .config("spark.sql.shuffle.partitions", spark_config["shuffle_partitions"])
+        .config("spark.local.dir", str(local_dir))
         .config("spark.sql.session.timeZone", "UTC")
         .getOrCreate()
     )
@@ -91,9 +95,10 @@ def clean_transactions(raw: DataFrame) -> DataFrame:
         F.col("sales_channel_id").cast("int"),
     ).dropna(subset=["t_dat", "customer_id", "article_id"])
 
+    # Date range from the typed rows: a plain scan, no shuffle.
+    bounds = typed.agg(F.min("t_dat").alias("first"), F.max("t_dat").alias("last")).first()
     deduped = typed.groupBy(typed.columns).agg(F.count(F.lit(1)).cast("int").alias("quantity"))
 
-    bounds = deduped.agg(F.min("t_dat").alias("first"), F.max("t_dat").alias("last")).first()
     last_week = (bounds["last"] - bounds["first"]).days // 7
     weeks_ago = F.floor(F.datediff(F.lit(bounds["last"]), F.col("t_dat")) / 7)
     return deduped.withColumn("week", (F.lit(last_week) - weeks_ago).cast("int"))
@@ -204,11 +209,17 @@ def main() -> int:
     raw_customers = read_csv("customers.csv", CUSTOMERS_SCHEMA)
     raw_articles = read_csv("articles.csv").withColumn("article_id", F.col("article_id").cast("string"))
 
+    # Customers and articles are small enough to keep; the 31.8M transactions are not.
     customers = clean_customers(raw_customers).persist(StorageLevel.MEMORY_AND_DISK)
     articles = clean_articles(raw_articles).persist(StorageLevel.MEMORY_AND_DISK)
 
-    transactions_all = clean_transactions(raw_transactions).persist(StorageLevel.MEMORY_AND_DISK)
-    transactions = keep_known_ids(transactions_all, customers, articles).persist(StorageLevel.MEMORY_AND_DISK)
+    # Transactions go straight to Parquet, and later steps read them back from disk.
+    print(f"Writing Parquet to {out_dir} ...")
+    transactions = keep_known_ids(clean_transactions(raw_transactions), customers, articles)
+    transactions.repartition("week").write.mode("overwrite").partitionBy("week").parquet(
+        str(out_dir / "transactions")
+    )
+    transactions = spark.read.parquet(str(out_dir / "transactions"))
 
     first_train_week, last_train_week = training_weeks(
         transactions, config["split"]["train_weeks"], config["split"]["test_weeks"]
@@ -217,25 +228,21 @@ def main() -> int:
         transactions, customers, articles, first_train_week, last_train_week,
         config["cleaning"]["cold_start_min_purchases"],
     )
-
-    print(f"Writing Parquet to {out_dir} ...")
-    transactions.repartition("week").write.mode("overwrite").partitionBy("week").parquet(
-        str(out_dir / "transactions")
-    )
     customers.write.mode("overwrite").parquet(str(out_dir / "customers"))
     articles.write.mode("overwrite").parquet(str(out_dir / "articles"))
 
-    # Read back the written files so the summary describes exactly what was saved.
+    # Counts come from the written files, so the summary describes exactly what was saved.
     saved_customers = spark.read.parquet(str(out_dir / "customers"))
     saved_articles = spark.read.parquet(str(out_dir / "articles"))
-    transaction_rows = transactions_all.count()
-    kept_rows = transactions.count()
+    raw_rows = raw_transactions.count()
+    totals = transactions.agg(F.count(F.lit(1)).alias("rows"), F.sum("quantity").alias("units")).first()
     summary = {
         "transactions": {
-            "raw_rows": raw_transactions.count(),
-            "rows_after_collapsing_duplicates": transaction_rows,
-            "rows_dropped_unknown_ids": transaction_rows - kept_rows,
-            "rows_written": kept_rows,
+            "raw_rows": raw_rows,
+            # Each written row is one distinct purchase; quantity counts its duplicate raw rows.
+            "rows_written": totals["rows"],
+            "duplicate_rows_collapsed": totals["units"] - totals["rows"],
+            "raw_rows_dropped": raw_rows - totals["units"],
             "weeks": last_train_week + config["split"]["test_weeks"] + 1,
         },
         "customers": {

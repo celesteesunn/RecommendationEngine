@@ -545,8 +545,8 @@ Status: ✅ done, ⏳ next, ⬜ planned.
 | Repo setup, dependencies, config, download script | Repo structure, `download.py` | Merged into `main` | ✅ |
 | Environment: WSL2, Python, Java, GPU check | Working environment, `scripts/setup_wsl.sh` | `pytest` passes in WSL; TF sees the GPU | ⏳ (`pytest` passes in WSL; GPU needs CUDA libraries) |
 | Download data | `data/raw/*.csv` | 3 files present | ✅ (row counts match Kaggle) |
-| PySpark cleaning | `src/data/clean.py`, Parquet | Row counts and missing-value checks pass | ⏳ (code + tests done; full run needs WSL2) |
-| Cold-start flags | Flags in Parquet | Cold-start counts reported | ⬜ |
+| PySpark cleaning | `src/data/clean.py`, Parquet | Row counts and missing-value checks pass | ✅ (31.8M rows in about 5 minutes; see Work Log step 7) |
+| Cold-start flags | Flags in Parquet | Cold-start counts reported | ✅ (81% of customers, 61% of products) |
 | Data-quality report | `reports/data_quality.md` | Committed | ⬜ |
 
 ### Week 2: deep learning model

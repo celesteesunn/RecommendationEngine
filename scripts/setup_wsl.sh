@@ -22,6 +22,20 @@ if ! command -v java >/dev/null; then
     exit 1
 fi
 
+# Spark (through Hadoop) sets file permissions when it writes. On the Windows drive that only
+# works when the drive is mounted with the "metadata" option and owned by this user.
+if ! (cd "$REPO_DIR" && touch .perm_check && chmod 644 .perm_check) 2>/dev/null; then
+    rm -f "$REPO_DIR/.perm_check"
+    cat >&2 <<'EOF'
+Cannot change file permissions in the repository folder, so Spark cannot write Parquet here.
+Enable Linux permissions on the Windows drive, then restart WSL:
+    printf '\n[automount]\noptions = "metadata,uid=1000,gid=1000,umask=022"\n' | sudo tee -a /etc/wsl.conf
+    wsl --shutdown        (in Windows PowerShell; then reopen Ubuntu)
+EOF
+    exit 1
+fi
+rm -f "$REPO_DIR/.perm_check"
+
 if [ ! -x "$TOOLS_DIR/bin/uv" ]; then
     echo "[1/3] Installing uv into $TOOLS_DIR"
     python3 -m venv "$TOOLS_DIR"

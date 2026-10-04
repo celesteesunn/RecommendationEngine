@@ -25,8 +25,11 @@ cleaning:
 
 spark:
   # WSL2 gets half of a 16 GB laptop's RAM (about 7.5 GB); Spark spills to disk beyond this.
-  driver_memory: 5g
+  driver_memory: 4g
   shuffle_partitions: 64
+  # Spark's scratch space for shuffle and spill files. Not /tmp: on Ubuntu 26.04 /tmp is
+  # held in RAM, so spilling there uses the very memory Spark is trying to save.
+  local_dir: ~/.cache/spark-tmp
 
 model:
   embedding_dim: 64

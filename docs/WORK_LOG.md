@@ -23,7 +23,7 @@ Week 1 is about the first two boxes: getting the data and cleaning it.
 ```text
  [1] Get data  ──►  [2] Clean  ──►  [3] Features  ──►  [4] Train model  ──►  [5] Serve via API
    Week 1            Week 1           Week 2              Week 2               Weeks 3–4
-   ✅ done           ⏳ running       ⬜                  ⬜                    ⬜
+   ✅ done           ✅ done          ⬜                  ⬜                    ⬜
 ```
 
 ---
@@ -217,11 +217,69 @@ quick, because finished downloads are cached.
 
 ---
 
+## Step 7: Run the cleaning job on the full data
+
+**What we did.** Ran `python -m src.data.clean` inside Ubuntu on all 31.8 million purchases.
+
+**Why.** Step 2 only wrote and tested the cleaning rules on small examples. Week 2 (features
+and the model) needs the real cleaned dataset.
+
+**Three problems on the way, and how each was fixed.** None of them were mistakes in the
+cleaning rules; all three came from how the laptop and Ubuntu are set up. They are worth knowing
+because anyone running Spark on WSL2 can hit them.
+
+| # | What happened | Cause | Fix |
+|---|---|---|---|
+| 1 | Linux killed Spark after 3 minutes (`Out of memory: Killed process ... (java)`) | WSL2 gets only half of the laptop's 16 GB (about 7.5 GB). Spark was allowed 5 GB and also kept four big tables in memory at once | Spark now writes the cleaned purchases to disk straight away and reads them back for the later steps, instead of holding them in memory |
+| 2 | `No space left on device` | Ubuntu 26.04 keeps the `/tmp` folder **in memory** (3.9 GB). Spark puts its temporary working files in `/tmp`, so they used up the same memory Spark needed | Spark's temporary files now go to `~/.cache/spark-tmp` on the real disk (setting `spark.local_dir` in `configs/config.yaml`) |
+| 3 | `chmod: Operation not permitted` when saving Parquet | Ubuntu connected the Windows `C:` drive as owned by the admin user (`root`), so Spark could not set file permissions in the project folder | A one-time setting in `/etc/wsl.conf` (`metadata,uid=1000,gid=1000`) plus `wsl --shutdown`. The setup script now checks for this and prints the fix |
+
+**How long it takes.** About 5 minutes (296 seconds) on the laptop, using all 16 CPU cores.
+
+**Output.** 875 MB of Parquet in `data/processed/` (the 3.7 GB of CSVs shrank to under a quarter):
+
+| Folder | Size | Contents |
+|---|---|---|
+| `transactions/` | 698 MB | 28,813,419 purchases in 105 week folders (`week=0` … `week=104`) |
+| `customers/` | 166 MB | 1,371,980 customers |
+| `articles/` | 11 MB | 105,542 products |
+
+**The numbers from `cleaning_summary.json`, and what they mean:**
+
+| Number | Value | Meaning |
+|---|---|---|
+| Raw purchase rows | 31,788,324 | Same as Kaggle |
+| Duplicate rows merged | 2,974,905 | Same item, same customer, same day: now one row with `quantity` 2, 3, … |
+| Rows dropped | 0 | Every purchase links to a real customer and product |
+| Rows written | 28,813,419 | 28,813,419 + 2,974,905 = 31,788,324, so nothing was lost |
+| Weeks | 105 | 20 Sep 2018 to 22 Sep 2020 |
+| Training window | weeks 92–103 | The 12 weeks the model will learn from |
+| Test week | week 104 (16–22 Sep 2020) | 217,916 purchases by 68,984 customers, held back to check the model |
+| Ages filled in | 15,861 | Flagged with `age_missing = 1` |
+
+**Cold start: the most important finding.**
+
+| Customers by purchases in the 12 training weeks | Count | Share |
+|---|---|---|
+| None at all | 866,670 | 63% |
+| 1 to 4 | 250,866 | 18% |
+| 5 or more (warm: enough history to personalise) | 254,444 | 19% |
+
+So **81% of customers are cold-start**, and 64,166 of the 105,542 products (61%) were not
+bought at all in the training window (mostly older products no longer on sale). This is why the
+project needs a good fallback: trending products by age group for cold customers, and the model
+only ranks products that are actually selling. It is also why the evaluation reports warm and
+cold customers separately.
+
+**Checks on the written files.** No missing values left in customers; `None` and `NONE` merged
+into one label; every product ID is 10 characters; all tests still pass.
+
+---
+
 ## What comes next
 
 | Next step | Why | Output |
 |---|---|---|
-| Run all tests inside Ubuntu | Prove the new environment works | `pytest` passes |
-| Check that TensorFlow sees the GPU | Training on the GPU is much faster than on the CPU | The RTX 2050 is listed |
-| Run `python -m src.data.clean` on the full data | Produce the clean dataset for Week 2 | `data/processed/` and `cleaning_summary.json` |
+| Install the CUDA libraries so TensorFlow sees the GPU | Training on the RTX 2050 is much faster than on the CPU | The GPU is listed by TensorFlow |
+| Data-quality report (`reports/data_quality.md`) | Week 1 deliverable; documents the problems above for the team and reviewers | A committed report |
 | Week 2: `src/features/build_features.py` | Turn clean data into what the model learns from (age group, favourite channel, product popularity over time, day of week) | Feature tables, plus the train/test split |
