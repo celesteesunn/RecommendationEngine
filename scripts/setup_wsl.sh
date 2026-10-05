@@ -52,6 +52,13 @@ fi
 echo "[3/3] Installing requirements-dev.txt"
 VIRTUAL_ENV="$VENV_DIR" "$UV" pip install -r "$REPO_DIR/requirements-dev.txt"
 
+# With an NVIDIA card, add the CUDA libraries TensorFlow needs to train on the GPU (~3 GB).
+if command -v nvidia-smi >/dev/null && nvidia-smi >/dev/null 2>&1; then
+    TF_VERSION="$(grep -E '^tensorflow==' "$REPO_DIR/requirements.txt" | cut -d= -f3)"
+    echo "      NVIDIA GPU found: installing CUDA libraries for TensorFlow $TF_VERSION"
+    VIRTUAL_ENV="$VENV_DIR" "$UV" pip install "tensorflow[and-cuda]==$TF_VERSION"
+fi
+
 if [ ! -f "$REPO_DIR/.env" ]; then
     cp "$REPO_DIR/.env.example" "$REPO_DIR/.env"
 fi

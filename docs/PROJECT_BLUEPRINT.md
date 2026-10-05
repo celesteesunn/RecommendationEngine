@@ -543,7 +543,7 @@ Status: ✅ done, ⏳ next, ⬜ planned.
 | Task | Output | Done when | Status |
 |---|---|---|---|
 | Repo setup, dependencies, config, download script | Repo structure, `download.py` | Merged into `main` | ✅ |
-| Environment: WSL2, Python, Java, GPU check | Working environment, `scripts/setup_wsl.sh` | `pytest` passes in WSL; TF sees the GPU | ⏳ (`pytest` passes in WSL; GPU needs CUDA libraries) |
+| Environment: WSL2, Python, Java, GPU check | Working environment, `scripts/setup_wsl.sh` | `pytest` passes in WSL; TF sees the GPU | ✅ (RTX 2050 via `tensorflow[and-cuda]`) |
 | Download data | `data/raw/*.csv` | 3 files present | ✅ (row counts match Kaggle) |
 | PySpark cleaning | `src/data/clean.py`, Parquet | Row counts and missing-value checks pass | ✅ (31.8M rows in about 5 minutes; see Work Log step 7) |
 | Cold-start flags | Flags in Parquet | Cold-start counts reported | ✅ (81% of customers, 61% of products) |
@@ -556,9 +556,9 @@ Status: ✅ done, ⏳ next, ⬜ planned.
 | Contextual features (time, recency, popularity over time) | `src/features/build_features.py` | Feature tables written | ✅ (3.36M training examples; see Work Log step 8) |
 | Vocabularies | `src/features/vocab.py` | Lookup tables saved | ✅ (saved with each model) |
 | Baselines | `src/models/baselines.py` | Baseline metrics recorded | ✅ (`reports/baselines.md`; repurchase MAP@12 0.0227) |
-| Two-tower model | `src/models/two_tower.py` | Model builds; a training step runs | ⬜ |
-| Training with negative sampling | `src/models/train.py` | Model trained and saved | ⬜ |
-| Evaluation: Recall@K, NDCG | `src/models/evaluate.py`, report | Beats the popularity baseline | ⬜ |
+| Two-tower model | `src/models/two_tower.py` | Model builds; a training step runs | ✅ |
+| Training with negative sampling | `src/models/train.py` | Model trained and saved | ✅ (in-batch negatives, early stopping) |
+| Evaluation: Recall@K, NDCG | `src/models/evaluate.py`, report | Beats the popularity baseline | ⏳ (v1 does not yet; see Work Log step 12) |
 
 ### Week 3: model serving and feature store
 

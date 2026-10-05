@@ -1,4 +1,9 @@
+import os
+
 import pytest
+
+# TFRS needs Keras 2; this must be set before anything imports TensorFlow.
+os.environ.setdefault("TF_USE_LEGACY_KERAS", "1")
 
 
 @pytest.fixture(scope="session")

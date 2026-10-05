@@ -213,7 +213,7 @@ quick, because finished downloads are cached.
 | Python, TensorFlow 2.18.1, TF Recommenders 0.7.7 | ✅ Import and run |
 | Tests (`pytest`) | ✅ 10 passed, including the Spark cleaning tests that could not save files on Windows |
 | `tests/test_recommender.py` | ❌ Imports a module (`recommendation_engine`) that does not exist in the repository. It came from an earlier teammate commit; fixing it is task S1 in the team tasks. Run the other tests with `pytest --ignore=tests/test_recommender.py` until then. |
-| TensorFlow sees the GPU | ⏳ Not yet: TensorFlow needs NVIDIA's CUDA libraries, a separate ~3 GB download. Needed for Week 2 training. |
+| TensorFlow sees the GPU | ✅ After installing NVIDIA's CUDA libraries (`tensorflow[and-cuda]`, about 3 GB). The setup script now does this automatically when an NVIDIA card is present. |
 
 ---
 
@@ -404,9 +404,73 @@ customers:
 
 ---
 
+## Step 11: The two-tower model (`src/models/two_tower.py`, `train.py`, `dataset.py`)
+
+**What we did.** Built the deep learning model from the blueprint with TensorFlow Recommenders
+and trained it on the 3.36 million training purchases.
+
+**Why two towers.** One tower turns a **customer** (profile, last 20 purchases, the day and
+channel of the visit) into a list of 64 numbers, a "customer vector". The other tower turns a
+**product** (type, colour, department, price band, popularity) into a "product vector" of the
+same size. The score for a customer and a product is how well their vectors line up (the dot
+product). Product vectors can be calculated once in advance, so finding a customer's best
+products among 100,000 takes milliseconds. This is how large shops do recommendations.
+
+**How it learns.** Training shows the model batches of 4,096 real purchases. For each customer
+in the batch, the product they really bought should score higher than the 4,095 products the
+*other* customers bought ("in-batch negatives"). Every batch nudges the numbers to make that
+more true.
+
+**Guarding against overfitting.** 2% of the examples are held out. If the model gets better
+on the training data but worse on the held-out data, it is memorising instead of learning, so
+training stops and the best version is kept ("early stopping").
+
+**Output.** `models/2026-10-04/` (not committed: too large, and it can be rebuilt):
+weights, vocabularies, and `training.json`. Training took 10.4 minutes on the CPU.
+
+| Epoch | Training loss | Held-out loss | |
+|---|---|---|---|
+| 1 | 20,218 | 9,790 | Learning (random guessing would be about 34,000) |
+| 2 | 18,060 | **9,611** | Best: kept |
+| 3 | 16,502 | 9,802 | Held-out loss went up: memorising, so training stopped |
+
+**Tests.** 3 tests check the towers produce 64-number vectors, cope with an empty history, and
+that training lowers the loss. A first version of that test used too high a learning rate
+(0.5) and the loss exploded, which shows this model needs a small learning rate (0.05).
+
+---
+
+## Step 12: Evaluation, version 1 (`src/models/evaluate.py`)
+
+**What we did.** For each of the 68,984 test customers, made a customer vector, found the 100
+best-scoring products, and compared them with what the customer really bought.
+
+**Why.** This is the moment of truth: is the model better than the simple baselines?
+
+**Output.** `reports/evaluation_2026-10-04.md`. Took 35 seconds.
+
+| Recommender (all customers) | Recall@12 | Recall@100 | MAP@12 |
+|---|---|---|---|
+| **Repurchase** (baseline) | **0.0518** | **0.1442** | **0.0227** |
+| Age-group best-sellers (baseline) | 0.0280 | 0.1269 | 0.0095 |
+| Global best-sellers (baseline) | 0.0255 | 0.1181 | 0.0088 |
+| Two-tower v1 + best-sellers for cold customers | 0.0241 | 0.1073 | 0.0079 |
+| Two-tower v1 alone | 0.0168 | 0.0727 | 0.0056 |
+
+**Honest result: version 1 loses to all three baselines.** This is common for a first deep
+learning model on this dataset, and it is exactly why we built the baselines first. The three
+likely causes, and the fix for each:
+
+| Cause | Why it hurts | Fix for version 2 |
+|---|---|---|
+| **Popularity bias.** Best-sellers appear in almost every batch as a "wrong answer" | The model learns to push best-sellers down, but in fashion best-sellers are exactly what people buy | Correct for how often each product appears in batches ("logQ correction", built into TFRS) |
+| **Old products in the list.** The model ranks all 41,376 products sold in 12 weeks | Many of them no longer sell, and they crowd out current ones | Rank only products that sold recently |
+| **No repurchase.** The model sees only an *average* of past purchases | The baselines prove people rebuy what they bought before | Blend: the customer's own repurchase items first, then the model's suggestions |
+
+---
+
 ## What comes next
 
 | Next step | Why | Output |
 |---|---|---|
-| Two-tower model and training | The deep learning model itself | A trained model in `models/` |
-| Evaluation | Prove whether the model beats the baselines | `reports/evaluation_<version>.md` |
+| Version 2 of the model with the three fixes above | Beat the repurchase baseline | `reports/evaluation_<version>.md` |
