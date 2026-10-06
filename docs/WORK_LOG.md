@@ -469,8 +469,62 @@ likely causes, and the fix for each:
 
 ---
 
+## Step 13: Model version 2: fixing popularity bias
+
+**What we did.** Tested the three suspected causes from step 12, one at a time, and retrained
+the model with the fix that mattered. Version 2 trained on the **GPU** (RTX 2050) in
+6.6 minutes, against 10.4 on the CPU.
+
+**Testing the causes first (on version 1, no retraining needed):**
+
+| Suspected cause | Test | Result |
+|---|---|---|
+| Old products crowd the list | Rank only products sold in the last 1, 4 or 12 weeks | Almost no change (Recall@12 0.0170 / 0.0169 / 0.0168): not the problem |
+| No repurchase | Put the customer's own products first, then the model's | Worse than repurchase + best-sellers (0.0419 vs 0.0518): the model's suggestions were worse than plain best-sellers |
+| Popularity bias | The previous result points here; fixing it needs retraining | See below |
+
+**The fix: logQ correction.** In training, every other product in the batch counts as a
+"wrong answer". Best-sellers appear in almost every batch, so the model was punished for
+liking them, and learned to push them down. In fashion, best-sellers are exactly what people
+buy. The correction tells the model how often each product is sampled and subtracts that
+from its score during training, so popular products are no longer unfairly punished.
+
+**Output.** `models/2026-10-05/` and `reports/evaluation_2026-10-05.md`:
+
+| Recommender (all 68,984 customers) | Recall@12 | Recall@100 | MAP@12 |
+|---|---|---|---|
+| Two-tower v1 | 0.0168 | 0.0727 | 0.0056 |
+| **Two-tower v2** | **0.0358** | **0.1361** | **0.0130** |
+| Global best-sellers (baseline) | 0.0255 | 0.1181 | 0.0088 |
+| Age-group best-sellers (baseline) | 0.0280 | 0.1269 | 0.0095 |
+| Repurchase (baseline) | 0.0518 | 0.1442 | 0.0227 |
+| **Repurchase + two-tower v2** | **0.0534** | **0.1507** | **0.0235** |
+
+**What this means.**
+
+- One fix **more than doubled** the model's score (Recall@12 0.0168 → 0.0358).
+- The model on its own now **beats both popularity baselines** on every metric. This is the
+  Week 2 "done when" condition in the blueprint.
+- **Repurchase + two-tower is the best recommender so far**, ahead of repurchase on every
+  metric. People's own past products come first; the model fills the rest of the list better
+  than best-sellers do. The gain is small at the top (0.0534 vs 0.0518) and larger deeper in
+  the list (Recall@100 0.1507 vs 0.1442), which is what matters for the 100 candidates.
+- **A finding that changes the plan:** for cold customers, the model (Recall@12 0.0345) beats
+  the age-group best-seller fallback (0.0287). The model still uses their age, club status and
+  any purchases they do have. So the fallback should be kept only for **brand-new** customers
+  with no record at all, not for every customer with fewer than 5 purchases.
+
+**Still to improve (optional tuning).** The held-out loss rose again in epoch 3, so the model
+starts memorising after two passes. The likely reason is the 505,310 customer-ID embeddings:
+one learned vector per customer is easy to memorise. Trying the model without the customer ID
+(relying on profile and history) is the next experiment.
+
+---
+
 ## What comes next
 
 | Next step | Why | Output |
 |---|---|---|
-| Version 2 of the model with the three fixes above | Beat the repurchase baseline | `reports/evaluation_<version>.md` |
+| Week 3: export the model | The API needs the towers saved as standalone TensorFlow models | `models/<version>/query_tower/`, `candidate_tower/` |
+| Week 3: FAISS index | Find a customer's best products among 41K in milliseconds | `faiss.index` |
+| Week 3: Redis feature store | The API needs each customer's features instantly | Customer and product data in Redis |

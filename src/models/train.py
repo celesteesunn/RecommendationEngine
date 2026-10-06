@@ -70,6 +70,9 @@ def main() -> int:
         processed, vocabularies, model_config["history_length"], config["features"]["popularity_weeks"]
     )
     rows = len(candidates["article_id"])
+    # The chance that a product is the positive example in a random training row.
+    counts = np.bincount(candidates["article_id"])
+    candidates["sampling_probability"] = (counts[candidates["article_id"]] / rows).astype(np.float32)
 
     # A random slice is held out to watch for overfitting and to stop training early.
     rng = np.random.default_rng(model_config["seed"])

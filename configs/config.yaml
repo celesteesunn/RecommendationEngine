@@ -53,6 +53,9 @@ model:
 
 evaluation:
   k_values: [12, 50, 100]
+  # The model ranks only products sold in this many weeks before the cut-off
+  # (must be one of features.popularity_weeks).
+  candidate_weeks: 4
 
 serving:
   top_k: 12

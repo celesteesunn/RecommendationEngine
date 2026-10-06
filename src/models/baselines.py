@@ -52,18 +52,23 @@ def age_group_popularity(
     return {customer: by_group.get(bucket_of.get(customer), best) for customer in customers}
 
 
-def repurchase(
-    window: pd.DataFrame, last_week: pd.DataFrame, customers: Sequence[str], n: int
-) -> dict[str, list[str]]:
-    """Each customer's own articles (most units first, then most recent), then best-sellers."""
-    best = top_articles(last_week, n)
-    own = (
+def own_purchases(window: pd.DataFrame) -> pd.Series:
+    """Each customer's own articles, most units first, then most recent."""
+    return (
         window.groupby(["customer_id", "article_id"])
         .agg(units=("quantity", "sum"), last=("t_dat", "max"))
         .reset_index()
         .sort_values(["customer_id", "units", "last"], ascending=[True, False, False])
         .groupby("customer_id")["article_id"].agg(list)
     )
+
+
+def repurchase(
+    window: pd.DataFrame, last_week: pd.DataFrame, customers: Sequence[str], n: int
+) -> dict[str, list[str]]:
+    """Each customer's own articles, then best-sellers."""
+    best = top_articles(last_week, n)
+    own = own_purchases(window)
     return {customer: fill_up(own.get(customer, [])[:n], best, n) for customer in customers}
 
 

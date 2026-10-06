@@ -558,7 +558,7 @@ Status: ✅ done, ⏳ next, ⬜ planned.
 | Baselines | `src/models/baselines.py` | Baseline metrics recorded | ✅ (`reports/baselines.md`; repurchase MAP@12 0.0227) |
 | Two-tower model | `src/models/two_tower.py` | Model builds; a training step runs | ✅ |
 | Training with negative sampling | `src/models/train.py` | Model trained and saved | ✅ (in-batch negatives, early stopping) |
-| Evaluation: Recall@K, NDCG | `src/models/evaluate.py`, report | Beats the popularity baseline | ⏳ (v1 does not yet; see Work Log step 12) |
+| Evaluation: Recall@K, NDCG | `src/models/evaluate.py`, report | Beats the popularity baseline | ✅ (v2 Recall@12 0.0358 vs 0.0255; repurchase + two-tower is best; see Work Log step 13) |
 
 ### Week 3: model serving and feature store
 

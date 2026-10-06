@@ -76,10 +76,13 @@ def load_training_inputs(
     return queries, candidates
 
 
-def load_candidate_items(processed: Path) -> pa.Table:
-    """The products the model ranks: those sold at least once in the training window."""
+def load_candidate_items(processed: Path, recent_weeks: int) -> pa.Table:
+    """The products the model ranks: those sold in the last recent_weeks before the cut-off.
+
+    Products that stopped selling would otherwise crowd out the ones on sale now.
+    """
     items = pq.read_table(processed / "item_features")
-    return items.filter(pc.equal(items["is_cold_start"], 0))
+    return items.filter(pc.greater(items[f"popularity_{recent_weeks}w"], 0))
 
 
 def load_test_queries(processed: Path, max_days_since: int) -> pa.Table:

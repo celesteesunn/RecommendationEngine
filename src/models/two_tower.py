@@ -99,5 +99,9 @@ class TwoTowerModel(tfrs.Model):
     def compute_loss(self, features: dict[str, dict[str, tf.Tensor]], training: bool = False) -> tf.Tensor:
         query = self.query_tower(features["query"])
         candidate = self.candidate_tower(features["candidate"])
+        # Popular products show up as wrong answers in almost every batch, which teaches the
+        # model to push them down. Passing how often each product is sampled subtracts that
+        # bias from its score during training (the "logQ correction").
         return self.task(query, candidate, candidate_ids=features["candidate"]["article_id"],
+                         candidate_sampling_probability=features["candidate"].get("sampling_probability"),
                          compute_metrics=False)
