@@ -1,4 +1,5 @@
-# Context Aware Neural Recommendation Engine
+
+  # Context Aware Neural Recommendation Engine
 
 This project is about building a personalised fashion recommendation system using the H&M Personalized Fashion Recommendations dataset.
 
@@ -187,3 +188,39 @@ Customer Data + Purchase History
                 ^
                 |
          Product Metadata
+###projecr structure
+RecommendationEngine/
+│
+├── configs/
+│   └── Project configuration files
+│
+├── dags/
+│   └── Airflow pipelines
+│
+├── data/
+│   ├── raw/
+│   └── processed/
+│
+├── docs/
+│   └── Project documentation
+│
+├── models/
+│   └── Trained models and embeddings
+│
+├── notebooks/
+│   └── Week 1 analysis and experiments
+│
+├── src/
+│   ├── data/
+│   ├── features/
+│   ├── models/
+│   ├── serving/
+│   └── api/
+│
+├── tests/
+│   └── Testing files
+│
+├── .env.example
+├── .gitignore
+├── README.md
+└── requirements-airflow.txt
