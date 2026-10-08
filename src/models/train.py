@@ -15,13 +15,14 @@ import datetime as dt
 import json
 import sys
 import time
+from pathlib import Path
 
 import numpy as np
 import pyarrow.parquet as pq
 
 from src.config import load_config, project_path
-from src.features.vocab import build_vocabularies, save_vocabularies
-from src.models.dataset import load_training_inputs
+from src.features.vocab import build_vocabularies, load_vocabularies, save_vocabularies
+from src.models.dataset import CANDIDATE_CATEGORIES, QUERY_CATEGORIES, load_training_inputs
 from src.models.two_tower import TwoTowerModel, tf
 
 WEIGHTS_FILE = "weights/model"
@@ -29,6 +30,33 @@ WEIGHTS_FILE = "weights/model"
 
 def build_model(vocabularies: dict[str, list[str]], config: dict) -> TwoTowerModel:
     return TwoTowerModel(vocabularies, config["model"]["embedding_dim"], config["features"]["max_days_since"])
+
+
+def latest_version(models_dir: Path) -> str:
+    """The newest trained model in models/ (versions are dates, so they sort in time order)."""
+    versions = sorted(p.name for p in models_dir.iterdir() if (p / "training.json").exists())
+    if not versions:
+        raise FileNotFoundError(f"No trained model in {models_dir}. Run: python -m src.models.train")
+    return versions[-1]
+
+
+def load_model(model_dir: Path, config: dict) -> tuple[TwoTowerModel, dict[str, list[str]]]:
+    """Rebuild a trained model from its saved vocabularies and weights."""
+    vocabularies = load_vocabularies(model_dir / "vocab")
+    model = build_model(vocabularies, config)
+    # Keras creates the layers on the first call, so run each tower once on a dummy row.
+    one = np.zeros(1, np.int32)
+    model.query_tower({
+        **{name: one for name in QUERY_CATEGORIES},
+        "history": np.zeros((1, config["model"]["history_length"]), np.int32),
+        "days_since_last_purchase": np.zeros(1, np.float32),
+    })
+    model.candidate_tower({
+        **{name: one for name in CANDIDATE_CATEGORIES},
+        "popularity": np.zeros((1, len(config["features"]["popularity_weeks"])), np.float32),
+    })
+    model.load_weights(str(model_dir / WEIGHTS_FILE)).expect_partial()
+    return model, vocabularies
 
 
 def take(arrays: dict[str, np.ndarray], rows: np.ndarray) -> dict[str, np.ndarray]:

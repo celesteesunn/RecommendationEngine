@@ -564,7 +564,7 @@ Status: ✅ done, ⏳ next, ⬜ planned.
 
 | Task | Output | Done when | Status |
 |---|---|---|---|
-| Export towers and product embeddings | `src/models/export.py` | SavedModel + `.npy` files | ⬜ |
+| Export towers and product embeddings | `src/models/export.py` | SavedModel + `.npy` files | ✅ (29,009 products; exported vectors match the trained model) |
 | Redis feature store | `src/serving/feature_store.py` | Profiles and products loaded | ⬜ |
 | ANN index (FAISS) | `src/serving/ann_index.py` | Approximate results match exact search ≥ 95% | ⬜ |
 

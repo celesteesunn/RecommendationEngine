@@ -24,21 +24,13 @@ import pandas as pd
 import pyarrow.parquet as pq
 
 from src.config import load_config, project_path
-from src.features.vocab import load_vocabularies
 from src.models.baselines import age_group_popularity, fill_up, own_purchases
 from src.models.dataset import encode_candidates, encode_queries, load_candidate_items, load_test_queries
 from src.models.metrics import evaluate
-from src.models.train import WEIGHTS_FILE, build_model
+from src.models.train import latest_version, load_model
 from src.models.two_tower import tf
 
 QUERY_BATCH = 1024
-
-
-def latest_version(models_dir) -> str:
-    versions = sorted(p.name for p in models_dir.iterdir() if (p / "training.json").exists())
-    if not versions:
-        raise FileNotFoundError(f"No trained model in {models_dir}. Run: python -m src.models.train")
-    return versions[-1]
 
 
 def in_batches(tower, inputs: dict[str, np.ndarray], size: int) -> np.ndarray:
@@ -99,8 +91,7 @@ def main() -> int:
     k_values = config["evaluation"]["k_values"]
     k = max(k_values)
 
-    vocabularies = load_vocabularies(model_dir / "vocab")
-    model = build_model(vocabularies, config)
+    model, vocabularies = load_model(model_dir, config)
 
     print("Encoding products and test customers ...")
     candidate_weeks = args.candidate_weeks or config["evaluation"]["candidate_weeks"]
@@ -108,11 +99,6 @@ def main() -> int:
     candidates = encode_candidates(items, vocabularies, config["features"]["popularity_weeks"])
     queries_table = load_test_queries(processed, config["features"]["max_days_since"])
     queries = encode_queries(queries_table, vocabularies, config["model"]["history_length"])
-
-    # Run both towers once so the layers exist, then load the trained weights into them.
-    model.query_tower({name: values[:1] for name, values in queries.items()})
-    model.candidate_tower({name: values[:1] for name, values in candidates.items()})
-    model.load_weights(str(model_dir / WEIGHTS_FILE)).expect_partial()
 
     print(f"Scoring {len(queries_table):,} customers against {len(items):,} products ...")
     item_vectors = in_batches(model.candidate_tower, candidates, 8192)

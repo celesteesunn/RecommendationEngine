@@ -521,10 +521,53 @@ one learned vector per customer is easy to memorise. Trying the model without th
 
 ---
 
+## Step 14: Export the model for serving (`src/models/export.py`)
+
+**What we did.** Saved the two towers of model version 2 as standalone TensorFlow models,
+calculated the vector of every product in advance, and checked the exported towers give the
+same numbers as the trained model.
+
+**Why.** Until now the model only worked inside our training code, which first turns every
+value into a number with our own encoders. The web API (Week 4) has to call the model with
+plain values, such as a customer ID and "Wednesday", and get a vector back, without
+depending on the training code.
+
+**Purpose of each output.**
+
+| Output | Size | Purpose |
+|---|---|---|
+| `query_tower/` (SavedModel) | 104 MB | Runs on every API request: customer + visit → customer vector. The vocabulary lookups are inside it, so it accepts plain text and numbers |
+| `candidate_tower/` (SavedModel) | 6 MB | Makes the vector for a product, for example a new product added to the shop |
+| `item_embeddings.npy` | 7 MB | The vectors of the 29,009 products sold in the last 4 weeks, computed once. Product vectors don't change between requests, so there is no need to recompute them |
+| `item_ids.npy` | 1 MB | Which product each row of `item_embeddings.npy` is |
+| `export.json` | small | Sizes and the result of the check |
+
+The query tower is the largest because it holds a vector for each of the 505,310 customers
+seen in training.
+
+**The check, and a GPU surprise.** After saving, the export reloads both towers, gives them
+plain values for 512 real customers and 512 real products, and compares the vectors with the
+trained model. The first run **failed**: the query tower matched exactly, but product vectors
+differed by 0.0013.
+
+The cause was the graphics card, not the code. Newer NVIDIA cards, including the RTX 2050,
+multiply in a faster, slightly less precise format called **TF32**, and TensorFlow switches it
+on by default. With TF32 the result depends a little on the batch size. The product vectors
+were computed in batches of 8,192 and checked in batches of 512, so they rounded differently.
+With TF32 switched off for the export, the largest difference is 0.00000095: normal float32
+rounding. The check now passes, and the stored vectors are full precision.
+
+**How long it takes.** About 70 seconds.
+
+**Tests.** 2 new tests check that a tiny exported model gives exactly the trained model's
+vectors from plain values, including for an unknown customer, an unknown product and an
+empty history.
+
+---
+
 ## What comes next
 
 | Next step | Why | Output |
 |---|---|---|
-| Week 3: export the model | The API needs the towers saved as standalone TensorFlow models | `models/<version>/query_tower/`, `candidate_tower/` |
-| Week 3: FAISS index | Find a customer's best products among 41K in milliseconds | `faiss.index` |
-| Week 3: Redis feature store | The API needs each customer's features instantly | Customer and product data in Redis |
+| Step 15: FAISS index | Find a customer's best products among 29,009 in milliseconds | `faiss.index` and a speed and accuracy comparison |
+| Step 16: Redis feature store | The API needs each customer's features in under a millisecond | Customer and product data in Redis |
