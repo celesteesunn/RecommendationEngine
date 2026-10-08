@@ -33,3 +33,8 @@ derby.log
 
 # Airflow
 airflow/logs/
+
+# Website: product photos are H&M's (downloaded by scripts/download_images.py)
+web/public/images/
+web/node_modules/
+web/dist/
