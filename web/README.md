@@ -31,12 +31,14 @@ pages can call it instead.
 
 ## Product photos (optional)
 
-Without photos, every product shows as a designed card in its real colour. To add H&M's
-photos for the products the site shows, put a Kaggle API token in `~/.kaggle/kaggle.json`
-and run, in Ubuntu from the repository root:
+Without photos, every product shows as a designed card in its real colour. To add H&M's real
+product photos for the 3,052 products the site shows, put a Kaggle API token in
+`~/.kaggle/kaggle.json` and run, in Ubuntu from the repository root:
 
 ```bash
 python -m scripts.download_images
 ```
 
-The photos land in `public/images/` and are never committed: they belong to H&M.
+It downloads a public Kaggle dataset of H&M's photos resized to 224 × 224 (about 285 MB),
+keeps only the photos the site needs (about 13 MB) and deletes the rest. The photos land in
+`public/images/` and are never committed: they belong to H&M.

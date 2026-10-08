@@ -595,7 +595,7 @@ the model's top 24 for the moment they really shopped; in June, none are.
 | `src/serving/site_data.py` | Runs the trained model for the 19 shoppers and for new visitors of each age group, for all 168 moments (7 days × 12 months × online / in store), and saves the results as small data files in `web/public/data/` (2.5 MB) |
 | `web/` (React + Vite) | The website itself. It reads those data files, so it works without a backend for now |
 | Swipe learning | Each product in the swipe pool carries its real 64-number vector from the model. A like moves the shopper's vector towards the product, a pass away from it, and the browser re-ranks all 360 products by the dot product, the same score the model uses |
-| `scripts/download_images.py` | Optional: downloads and shrinks H&M's photos for only the 3,052 products the site shows (needs a Kaggle token). Without photos, each product is a designed card in its real colour. Photos are never committed |
+| `scripts/download_images.py` | Optional: fetches H&M's real photos for only the 3,052 products the site shows (needs a Kaggle token). Without photos, each product is a designed card in its real colour. Photos are never committed |
 
 **Checking the model really reacts to the moment.** Before building the Moments page, we
 tested 200 test customers. Changing only the month from September to June keeps just **4%**
@@ -609,10 +609,39 @@ reveal switch, swiping with the keyboard, and a phone-sized screen. The producti
 
 ---
 
+## Step 16: Real product photos
+
+**What we did.** Added H&M's real product photos to the website for the 3,052 products it
+shows.
+
+**Why.** Product photos make the recommendations easy to judge at a glance: you can *see*
+that a shopper who buys mom jeans is being shown mom jeans.
+
+**Why not just any photos.** Every photo must be the actual product. With random stock
+photos, "Really bought" would mark a picture of a jacket on a dress, and the site would show
+the model as wrong when it was right.
+
+**What happened on the way.** The original photos are part of the Kaggle *competition*, which
+needs the competition rules accepted on the Kaggle account. The token worked, but the
+competition refused it (`401 Unauthorized`) because the rules were not accepted on that
+account. Instead we used a public Kaggle *dataset* in which H&M's same photos were resized to
+224 × 224, with the same file names. Datasets only need a valid token.
+
+**How it works.** `scripts/download_images.py` downloads that dataset once (285 MB), keeps
+only the photos the site needs, and deletes the rest.
+
+**Output.** 3,047 photos in `web/public/images/`, 13 MB in total. 5 products have no photo in
+the dataset and show as colour cards. The photos are H&M's, so they are never committed;
+anyone can fetch them again with the script.
+
+**A fix found while checking.** On narrow screens the swipe card stretched to the full width,
+blowing the 224-pixel photo up until it was blurry. The card is now capped at 380 pixels wide.
+
+---
+
 ## What comes next
 
 | Next step | Why | Output |
 |---|---|---|
-| Product photos | Real H&M photos on the cards | `web/public/images/` (needs a Kaggle token) |
 | FastAPI backend | Live recommendations for any customer, not just the 19 samples | `src/api/` |
 | Connect the website to the API | Swap the data files for live calls | The same pages, live |

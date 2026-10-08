@@ -211,7 +211,7 @@ a { color: inherit; }
 
 /* Swipe */
 .swipe-layout { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 48px; align-items: start; }
-.deck { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.deck { display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%; max-width: 380px; margin: 0 auto; }
 .swipe-card {
   width: 100%; background: var(--card); border-radius: 20px; overflow: hidden; border: 1px solid var(--line);
   box-shadow: 0 24px 50px -30px rgba(27, 26, 23, 0.55); cursor: grab; touch-action: pan-y;
