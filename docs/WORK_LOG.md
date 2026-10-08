@@ -565,9 +565,54 @@ empty history.
 
 ---
 
+## Step 15: The website, Kairos (`web/`, `src/serving/site_data.py`)
+
+**What we did.** Built the project's shop front: a website called **Kairos** (Greek for "the
+right moment") with three pages, all showing real recommendations from model version 2.
+
+**Why.** Project reviews look at the commits and the working project. A website makes the
+model visible: anyone can open it and see what it recommends and why.
+
+**Why it is different from Blinkit, Instacart or Myntra.** Those shops are built around
+aisles, categories and a search box. Kairos has none of them. It is built around what makes
+our model special, **context**:
+
+| Page | The idea | What the shopper sees |
+|---|---|---|
+| **Moments** | Shop by the moment, not by aisle | A sentence to complete: "It's a *Wednesday* in *September*, and I'm shopping *online*." Changing a word reshapes the feed, new picks are highlighted, and every product says why it was picked ("You often buy dresses", "Popular with 25-34 shoppers") |
+| **Style story** | Your wardrobe as a story | Style DNA (your colours and product types), a month-by-month timeline of purchases, and "the next chapter": what the model expected for your real next visit |
+| **Swipe** | Teach it your taste, live | Like or pass products; the feed re-ranks after every swipe, with arrows showing what moved up or down and a "taste learned" meter |
+
+**Honesty built in.** The sample shoppers are 19 real customers from the test week. A
+"Reveal what they really bought" switch marks the products they really bought that week, so
+anyone can check the model's predictions. For one shopper, 1 of their 13 real purchases is in
+the model's top 24 for the moment they really shopped; in June, none are.
+
+**How the parts fit.**
+
+| Part | Purpose |
+|---|---|
+| `src/serving/site_data.py` | Runs the trained model for the 19 shoppers and for new visitors of each age group, for all 168 moments (7 days × 12 months × online / in store), and saves the results as small data files in `web/public/data/` (2.5 MB) |
+| `web/` (React + Vite) | The website itself. It reads those data files, so it works without a backend for now |
+| Swipe learning | Each product in the swipe pool carries its real 64-number vector from the model. A like moves the shopper's vector towards the product, a pass away from it, and the browser re-ranks all 360 products by the dot product, the same score the model uses |
+| `scripts/download_images.py` | Optional: downloads and shrinks H&M's photos for only the 3,052 products the site shows (needs a Kaggle token). Without photos, each product is a designed card in its real colour. Photos are never committed |
+
+**Checking the model really reacts to the moment.** Before building the Moments page, we
+tested 200 test customers. Changing only the month from September to June keeps just **4%**
+of the top 24 picks; online versus in store keeps about half; the day of the week keeps 92%.
+So the controls on the page change the model's real output, not just the decoration.
+
+**Output.** The website runs with `npm run dev` in `web/` and opens at
+http://localhost:5173. Checked in the browser: all three pages, the moment controls, the
+reveal switch, swiping with the keyboard, and a phone-sized screen. The production build is
+53 KB of compressed code.
+
+---
+
 ## What comes next
 
 | Next step | Why | Output |
 |---|---|---|
-| Step 15: FAISS index | Find a customer's best products among 29,009 in milliseconds | `faiss.index` and a speed and accuracy comparison |
-| Step 16: Redis feature store | The API needs each customer's features in under a millisecond | Customer and product data in Redis |
+| Product photos | Real H&M photos on the cards | `web/public/images/` (needs a Kaggle token) |
+| FastAPI backend | Live recommendations for any customer, not just the 19 samples | `src/api/` |
+| Connect the website to the API | Swap the data files for live calls | The same pages, live |

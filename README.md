@@ -12,6 +12,24 @@ New to the project? Two documents explain it in depth:
 - [Project Guide](docs/PROJECT_GUIDE.md): the current state of the repo, design decisions,
   status and next steps.
 
+## Website: Kairos
+
+**Kairos** is the project's shop front: a fashion shop with no aisles and no search box that
+picks clothes for the moment you're in, using real recommendations from the trained model.
+
+- **Moments:** "It's a *Wednesday* in *September*, and I'm shopping *online*." Change the
+  moment and the feed rearranges itself; every product says why it was picked.
+- **Style story:** a shopper's style DNA, purchase timeline and "next chapter".
+- **Swipe:** like or pass products and watch the feed learn your taste live.
+
+```bash
+cd web
+npm install
+npm run dev        # http://localhost:5173
+```
+
+See [web/README.md](web/README.md) for the data and the optional product photos.
+
 ## Project Pipeline
 
 1. Distributed data processing and data preparation
