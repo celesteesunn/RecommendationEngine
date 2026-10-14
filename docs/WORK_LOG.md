@@ -17,14 +17,17 @@ questions: **What** did we do, **Why** was it needed, **What is the purpose**, a
 We are building a recommendation engine for an online fashion store (H&M). It looks at what
 each customer bought before, plus context such as the day of the week, and picks the 12
 products they are most likely to buy next. To get there, the data has to pass through a
-pipeline: **raw data → cleaning → features → model training → fast serving through an API**.
-Week 1 is about the first two boxes: getting the data and cleaning it.
+pipeline: **raw data → cleaning → features → model training → fast serving through an API**,
+and a website shows the results.
 
 ```text
- [1] Get data  ──►  [2] Clean  ──►  [3] Features  ──►  [4] Train model  ──►  [5] Serve via API
-   Week 1            Week 1           Week 2              Week 2               Weeks 3–4
-   ✅ done           ✅ done          ✅                  ⬜                    ⬜
+ [1] Get data ──► [2] Clean ──► [3] Features ──► [4] Train model ──► [5] Serve via API ──► [6] Website
+   Week 1          Week 1         Week 2           Week 2              Weeks 3–4            Weeks 3–4
+   ✅ done         ✅ done        ✅ done          ✅ done (v2)        ✅ live (Step 18)    ✅ live (Step 19)
 ```
+
+Still to come: Redis feature store, load test, Airflow retraining, one-command start
+(see "What comes next" at the bottom).
 
 ---
 
@@ -765,11 +768,75 @@ fallback with the API stopped. The production build succeeds.
 
 ---
 
+## Step 20: First improvements from the website review
+
+**What we did.** Fixed the most important weak points found in the
+[Website Guide](WEBSITE_GUIDE.md) review.
+
+### 1. The live site now serves the best recommender we have
+
+The evaluation (Step 13) showed that *repurchase + two-tower* beats the model on its own, but
+the API served the model on its own. Simply copying the blend has a catch: it puts **all** of a
+customer's own products first, so for anyone with 12 or more past products the top 12 is all
+repurchases, and changing the moment on the Moments page would change nothing.
+
+So we measured blends that put **at most N** of the customer's own products first
+(`evaluation.repurchase_caps` in the config, `reports/evaluation_2026-10-05.md`):
+
+| Top 12 for all 68,984 test customers | Recall@12 | Model picks in the top 12 |
+|---|---|---|
+| Two-tower on its own (what the API served) | 0.0358 | 12 |
+| Repurchase, then best-sellers (baseline) | 0.0518 | 0 |
+| Up to 2 own products, then the model | 0.0461 | at least 10 |
+| Up to 4 own products, then the model | 0.0506 | at least 8 |
+| **Up to 6 own products, then the model** | **0.0527** | **at least 6** |
+| All own products, then the model | 0.0533 | 0 for heavy buyers |
+
+**Up to 6** keeps 99% of the best score, beats the repurchase baseline, and leaves at least
+half of the page to the model, so the moment still matters. The API now uses it by default
+(`serving.repurchase_slots: 6`), with `blend=model` for the model alone. Every item says where
+it came from (`"source": "bought before"` or `"model"`). For 5 random customers, the API's own
+products came out in exactly the evaluation code's order.
+
+(These numbers were re-run on the CPU; the earlier GPU run differs in the fourth decimal, for
+example 0.0533 against 0.0534, because of the GPU's TF32 maths, see Step 14.)
+
+### 2. Photos for every product on sale
+
+`python -m scripts.download_images --all-on-sale` now also fetches photos for the 29,009
+products the live API can pick, so live picks show real photos instead of colour cards.
+
+### 3. Honest labels
+
+Each card now says where the pick came from: **Model pick** or **↻ Bought before**. A note
+under the feed says the small tags ("You often buy trousers") are patterns in the shopper's
+data that the pick matches, **not the model's own reasons**. Moments has a switch, **Their
+past buys first**, to compare the blend with the model alone.
+
+### 4. The site survives the API stopping
+
+If a live call fails because the API is down, the site switches to the saved picks instead
+of showing an error, asks again every 30 seconds, and goes live again when the API is back.
+A "customer not found" answer is not treated as the API being down.
+
+### 5. Smaller fixes
+
+| Fix | Why |
+|---|---|
+| Swipe ranks for the moment chosen on Moments | It was always "a Wednesday in September, online" |
+| Swipe stays model-only | With past buys first, every deck would start with things the shopper already owns |
+| Removed `tests/test_recommender.py` | It imported a package that never existed in the repository |
+| Updated the diagram at the top of this log | It still showed Weeks 2–4 as not done |
+
+**Tests.** 3 new API tests (own products order, blending without repeats, the `blend`
+option): 11 API tests in all.
+
+---
+
 ## What comes next
 
 | Next step | Why | Output |
 |---|---|---|
-| Photos for all products on sale | Live picks reach far beyond the 3,047 photos downloaded, so many show as colour cards | `scripts/download_images.py` for the 29,009 products (about 130 MB, never committed) |
 | Redis feature store | Customer profiles take most of the API's 2.7 GB and 25-second start-up; Redis would hold them once for any number of API workers | `src/serving/` loader + Redis lookups in `src/api/` |
 | Load test (Siddhi, S4) | Shows how many requests per second the API handles, and the slowest 5% of response times | Locust script + results in `reports/` |
 | Airflow DAG | Retrain, evaluate, export and reload the API every week without manual steps | `dags/` |
