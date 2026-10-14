@@ -1,0 +1,8 @@
+{
+  "evaluation_customers": 5000,
+  "recall_at_10": 0.01,
+  "ndcg_at_10": 0.005142121548534502,
+  "training_interactions": 179653,
+  "test_interactions": 103592,
+  "catalogue_articles": 105531
+}
