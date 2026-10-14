@@ -27,6 +27,9 @@ export const MONTHS = [
 export const CHANNELS = { 1: "in store", 2: "online" };
 export const AGE_BUCKETS = ["16-24", "25-34", "35-44", "45-54", "55+", "unknown"];
 
+// The moment the pages start at: a Wednesday in September, online.
+export const DEFAULT_MOMENT = { day: 4, month: 9, channel: 2 };
+
 export const momentKey = ({ day, month, channel }) => `d${day}-m${month}-c${channel}`;
 
 export function parseMoment(key) {

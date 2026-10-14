@@ -33,8 +33,12 @@ export function ProductVisual({ id, item, size = "large" }) {
   );
 }
 
-export default function ProductCard({ id, item, rank, reasons = [], bought = false, fresh = false }) {
+const SOURCES = { model: "Model pick", "bought before": "↻ Bought before" };
+
+// source: where the pick came from ("model" or "bought before"); reasons: patterns it matches.
+export default function ProductCard({ id, item, rank, reasons = [], bought = false, fresh = false, source }) {
   if (!item) return null;
+  const tags = source === "bought before" ? reasons.filter((r) => r !== "You bought this before") : reasons;
   return (
     <article className={`card${bought ? " card-bought" : ""}${fresh ? " card-fresh" : ""}`}>
       <div className="card-media">
@@ -43,14 +47,15 @@ export default function ProductCard({ id, item, rank, reasons = [], bought = fal
         {bought && <span className="stamp">Really bought</span>}
       </div>
       <div className="card-body">
+        {source && <p className={`card-source source-${source === "model" ? "model" : "own"}`}>{SOURCES[source]}</p>}
         <h3 className="card-name">{item.name}</h3>
         <p className="card-meta">
           {item.colour} · {item.type}
           <PriceDots band={item.priceBand} />
         </p>
-        {reasons.length > 0 && (
-          <ul className="reasons">
-            {reasons.map((reason) => (
+        {tags.length > 0 && (
+          <ul className="reasons" title="Patterns in the shopper's data that this pick matches">
+            {tags.map((reason) => (
               <li key={reason}>{reason}</li>
             ))}
           </ul>

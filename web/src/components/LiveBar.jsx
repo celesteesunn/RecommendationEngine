@@ -2,7 +2,7 @@ import { useState } from "react";
 import { fetchCustomer, fetchRandomCustomer } from "../api.js";
 
 // Shows whether picks come live from the model, and lets anyone shop as any real customer.
-export default function LiveBar({ live, onCustomer }) {
+export default function LiveBar({ live, onCustomer, onApiError }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState(null);
@@ -25,6 +25,7 @@ export default function LiveBar({ live, onCustomer }) {
       setText("");
     } catch (error) {
       setProblem(error.message);
+      onApiError(error);
     } finally {
       setBusy(false);
     }

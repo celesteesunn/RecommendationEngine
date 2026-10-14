@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addProducts, fetchPicks } from "../api.js";
+import { addProducts, apiIsDown, fetchPicks } from "../api.js";
 import ProductCard from "../components/ProductCard.jsx";
 import { CHANNELS, DAYS, MONTHS, formatDate, loadJson, momentKey, parseMoment, recommendationsFile, season } from "../data.js";
 import { reasonsFor, shopperFacts } from "../reasons.js";
@@ -10,7 +10,6 @@ const PRESETS = [
   { label: "Back to work, September", moment: { day: 2, month: 9, channel: 2 } },
   { label: "December weekend", moment: { day: 7, month: 12, channel: 1 } },
 ];
-const DEFAULT_MOMENT = { day: 4, month: 9, channel: 2 };
 const SHOWN = 12;
 const REVEAL_SHOWN = 24;
 
@@ -26,9 +25,10 @@ function InlineSelect({ value, options, onChange, label }) {
   );
 }
 
-export default function Moments({ shared, shopper, customer, live }) {
+export default function Moments({ shared, shopper, customer, live, onApiError, moment, setMoment }) {
   const realMoment = customer?.nextVisit ? parseMoment(customer.nextVisit.moment) : null;
-  const [moment, setMoment] = useState(realMoment ?? DEFAULT_MOMENT);
+  // "best": their own recent products first, then the model's (the best blend in the evaluation).
+  const [blend, setBlend] = useState("best");
   // Saved picks: every moment at once. Live picks: the current moment, asked from the model.
   const [table, setTable] = useState(null);
   const [livePicks, setLivePicks] = useState(null);
@@ -37,32 +37,41 @@ export default function Moments({ shared, shopper, customer, live }) {
   // The picks shown for the previous moment, to highlight what changed.
   const previous = useRef({ key: null, picks: [] });
 
-  // A new shopper starts at the moment they really shopped (or a Wednesday in September).
+  // A new shopper (App moves the moment to when they really shopped), or the API came or went.
   useEffect(() => {
-    setMoment(realMoment ?? DEFAULT_MOMENT);
     setReveal(false);
     previous.current = { key: null, picks: [] };
     setTable(null);
     setLivePicks(null);
     if (!live) loadJson(recommendationsFile(shopper)).then(setTable);
-  }, [shopper.kind, shopper.id, shopper.age]);
+  }, [shopper.kind, shopper.id, shopper.age, live]);
 
   // Live: ask the model for this moment. The previous picks stay on screen until the answer comes.
   useEffect(() => {
     if (!live) return undefined;
     let current = true;
     setProblem(null);
-    fetchPicks(shopper, moment, { k: REVEAL_SHOWN })
+    fetchPicks(shopper, moment, { k: REVEAL_SHOWN, blend })
       .then((answer) => {
         if (!current) return;
         addProducts(shared.catalog, answer.items);
-        setLivePicks({ key: answer.moment, ids: answer.items.map((item) => item.articleId), tookMs: answer.tookMs });
+        setLivePicks({
+          key: `${answer.moment}-${answer.blend}`,
+          ids: answer.items.map((item) => item.articleId),
+          sources: Object.fromEntries(answer.items.map((item) => [item.articleId, item.source])),
+          blend: answer.blend,
+          tookMs: answer.tookMs,
+        });
       })
-      .catch((error) => current && setProblem(error.message));
+      .catch((error) => {
+        if (!current) return;
+        if (apiIsDown(error)) onApiError(error);
+        else setProblem(error.message);
+      });
     return () => {
       current = false;
     };
-  }, [live, shopper.kind, shopper.id, shopper.age, moment.day, moment.month, moment.channel]);
+  }, [live, shopper.kind, shopper.id, shopper.age, moment.day, moment.month, moment.channel, blend]);
 
   // Revealing shows the full top 24, so every real purchase the model found is visible.
   const shown = reveal ? REVEAL_SHOWN : SHOWN;
@@ -134,6 +143,12 @@ export default function Moments({ shared, shopper, customer, live }) {
           {isRealMoment && <span className="tag">This is when they really shopped: {formatDate(customer.nextVisit.date)}</span>}
           {live && livePicks && <span className="tag tag-live">Live from the model · {Math.round(livePicks.tookMs)} ms</span>}
         </p>
+        {live && customer && (
+          <label className="switch" title="Tested on the 68,984 test-week customers: 5.3% of what they bought next is in the top 12 with their past buys first, 3.6% with the model alone">
+            <input type="checkbox" checked={blend === "best"} onChange={(e) => setBlend(e.target.checked ? "best" : "model")} />
+            <span>Their past buys first</span>
+          </label>
+        )}
         {canReveal && (
           <label className="switch">
             <input type="checkbox" checked={reveal} onChange={(e) => setReveal(e.target.checked)} />
@@ -142,11 +157,19 @@ export default function Moments({ shared, shopper, customer, live }) {
         )}
       </section>
 
+      <p className="feed-note muted small">
+        {live && livePicks?.blend === "best"
+          ? "Up to 6 of their own recent buys come first (people often buy again), then the model's picks. "
+          : "Ranked by the model. "}
+        The tags under each product are patterns in the shopper's data that the pick matches, not the model's
+        own reasons.
+      </p>
+
       {reveal && canReveal && (
         <p className="reveal-note">
           {hits > 0
-            ? `${hits} of the ${customer.boughtInTestWeek.length} products this shopper really bought that week ${hits === 1 ? "is" : "are"} in the model's top ${fullList.length} for this moment, marked below.`
-            : `None of the ${customer.boughtInTestWeek.length} products they really bought are in the top ${fullList.length} for this moment. Try the moment they really shopped.`}
+            ? `${hits} of the ${customer.boughtInTestWeek.length} products this shopper really bought that week ${hits === 1 ? "is" : "are"} in the top ${fullList.length} for this moment, marked below.`
+            : `None of the ${customer.boughtInTestWeek.length} products they really bought are in the top ${fullList.length} for this moment.${isRealMoment ? "" : " Try the moment they really shopped."}`}
         </p>
       )}
 
@@ -158,7 +181,7 @@ export default function Moments({ shared, shopper, customer, live }) {
         <div className="grid">
           {picks.map((id, i) => (
             <ProductCard key={id} id={id} rank={i + 1} item={shared.catalog[id]} fresh={fresh.has(id)}
-              bought={reveal && bought.has(id)}
+              bought={reveal && bought.has(id)} source={live ? livePicks.sources[id] : "model"}
               reasons={reasonsFor(id, shared.catalog[id], facts, shared.trending, moment, shopper.age)} />
           ))}
         </div>

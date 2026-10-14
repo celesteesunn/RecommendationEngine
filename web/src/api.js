@@ -8,14 +8,20 @@ async function call(path, options) {
   const response = await fetch(`${API}${path}`, options);
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(typeof body.detail === "string" ? body.detail : `The API answered ${response.status}`);
+    const error = new Error(typeof body.detail === "string" ? body.detail : `The API answered ${response.status}`);
+    error.status = response.status;
+    throw error;
   }
   return response.json();
 }
 
-// The model version and sizes when the API is up, otherwise null. Asked once per page load.
-export function checkLive() {
-  if (!health) {
+// A failed connection, or a 5xx from the API or the dev server's proxy, means the API is down.
+// A 4xx (unknown customer, bad input) is an answer, not an outage.
+export const apiIsDown = (error) => !error.status || error.status >= 500;
+
+// The model version and sizes when the API is up, otherwise null. `again` asks afresh.
+export function checkLive(again = false) {
+  if (!health || again) {
     health = call("/health", { signal: AbortSignal.timeout(4000) }).catch(() => null);
   }
   return health;
@@ -25,8 +31,9 @@ export const fetchCustomer = (id) => call(`/customers/${encodeURIComponent(id.tr
 export const fetchRandomCustomer = () => call("/customers/random?warm=true");
 
 // The model's picks for a shopper at a moment. Likes are added to the shopper's history.
-export function fetchPicks(shopper, moment, { k = 24, history = [], exclude = [] } = {}) {
-  const body = { ...moment, k, history, exclude };
+// blend "best": a real customer's own recent products first, then the model's; "model": model only.
+export function fetchPicks(shopper, moment, { k = 24, history = [], exclude = [], blend = "best" } = {}) {
+  const body = { ...moment, k, history, exclude, blend };
   if (shopper.kind === "customer") body.customerId = shopper.customerId ?? shopper.id;
   else body.ageBucket = shopper.age;
   return call("/recommendations", {
@@ -39,7 +46,7 @@ export function fetchPicks(shopper, moment, { k = 24, history = [], exclude = []
 // The catalog starts with the products in the saved data; live answers bring their own details.
 export function addProducts(catalog, products) {
   for (const item of products) {
-    const { articleId, score, ...details } = item;
+    const { articleId, score, source, ...details } = item;
     if (!catalog[articleId]) catalog[articleId] = details;
   }
 }

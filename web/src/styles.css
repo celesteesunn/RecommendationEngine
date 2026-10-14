@@ -169,6 +169,10 @@ a { color: inherit; }
 .card-meta { margin: 0; font-size: 0.85rem; color: var(--ink-soft); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .price { letter-spacing: 1px; font-size: 0.6rem; color: var(--ink); }
 .price-empty { color: var(--line); }
+.card-source { margin: 0 0 2px; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.source-model { color: var(--ink-soft); }
+.source-own { color: var(--like); }
+.feed-note { margin: -6px 0 16px; max-width: 70ch; }
 .reasons { list-style: none; padding: 0; margin: 2px 0 0; display: flex; flex-direction: column; gap: 4px; }
 .reasons li {
   font-size: 0.78rem; background: color-mix(in srgb, var(--accent) 12%, var(--card));

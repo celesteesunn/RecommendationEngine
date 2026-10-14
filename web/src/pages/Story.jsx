@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addProducts, fetchPicks } from "../api.js";
+import { addProducts, apiIsDown, fetchPicks } from "../api.js";
 import ProductCard, { ProductVisual } from "../components/ProductCard.jsx";
 import { colourHex, inkFor } from "../colours.js";
 import { CHANNELS, DAYS, MONTHS, formatDate, loadJson, parseMoment } from "../data.js";
@@ -43,8 +43,9 @@ function StyleDna({ dna }) {
   );
 }
 
-export default function Story({ shared, shopper, customer, setShopper, live }) {
+export default function Story({ shared, shopper, customer, setShopper, live, onApiError }) {
   const [next, setNext] = useState(null);
+  const [sources, setSources] = useState({});
   const [reveal, setReveal] = useState(false);
   const timeline = useRef(null);
   const nextKey = customer?.nextVisit?.moment ?? DEFAULT_NEXT;
@@ -54,13 +55,25 @@ export default function Story({ shared, shopper, customer, setShopper, live }) {
     setNext(null);
     if (!customer) return undefined;
     let current = true;
+    // Live: their own recent buys first, then the model's (the best blend in the evaluation).
     const picks = live
       ? fetchPicks(shopper, parseMoment(nextKey), { k: 12 }).then((answer) => {
           addProducts(shared.catalog, answer.items);
-          return answer.items.map((item) => item.articleId);
+          return answer.items;
         })
-      : loadJson(`moments/${customer.id}.json`).then((table) => table[nextKey].slice(0, 12));
-    picks.then((ids) => current && setNext(ids)).catch(() => current && setNext([]));
+      : loadJson(`moments/${customer.id}.json`).then((table) =>
+          table[nextKey].slice(0, 12).map((articleId) => ({ articleId, source: "model" })));
+    picks
+      .then((items) => {
+        if (!current) return;
+        setSources(Object.fromEntries(items.map((item) => [item.articleId, item.source])));
+        setNext(items.map((item) => item.articleId));
+      })
+      .catch((error) => {
+        if (!current) return;
+        if (apiIsDown(error)) onApiError(error);
+        setNext([]);
+      });
     return () => {
       current = false;
     };
@@ -166,7 +179,7 @@ export default function Story({ shared, shopper, customer, setShopper, live }) {
       </section>
       <p className="lede">
         {customer.nextVisit
-          ? `What the model expected for their next visit on ${DAYS[moment.day - 1]} ${formatDate(customer.nextVisit.date)}, ${CHANNELS[moment.channel]}.`
+          ? `The picks for their next visit on ${DAYS[moment.day - 1]} ${formatDate(customer.nextVisit.date)}, ${CHANNELS[moment.channel]}.`
           : `They did not shop in the test week, so this is what the model would pick for a ${DAYS[moment.day - 1]} in ${MONTHS[moment.month - 1]}, ${CHANNELS[moment.channel]}.`}
       </p>
       {reveal && (
@@ -185,6 +198,7 @@ export default function Story({ shared, shopper, customer, setShopper, live }) {
         <div className="grid">
           {next.map((id, i) => (
             <ProductCard key={id} id={id} rank={i + 1} item={shared.catalog[id]} bought={reveal && bought.has(id)}
+              source={sources[id]}
               reasons={reasonsFor(id, shared.catalog[id], facts, shared.trending, moment)} />
           ))}
         </div>

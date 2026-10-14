@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { addProducts, fetchPicks } from "../api.js";
+import { addProducts, apiIsDown, fetchPicks } from "../api.js";
 import { ProductVisual } from "../components/ProductCard.jsx";
-import { loadJson, swipeStartKey } from "../data.js";
+import { CHANNELS, DAYS, MONTHS, loadJson, swipeStartKey } from "../data.js";
 
 // How far one swipe moves the shopper's vector, relative to its length.
 const LIKE_STEP = 0.45;
 const PASS_STEP = 0.15;
 const DRAG_THRESHOLD = 110;
 const FEED_SIZE = 6;
-// Live mode: the moment the deck is ranked for, and how many picks to ask for each time.
-const LIVE_MOMENT = { day: 4, month: 9, channel: 2 };
+// Live mode: how many picks to ask for each time.
 const LIVE_K = 30;
 const TOP = 24;
 
@@ -22,7 +21,7 @@ function nudge(query, vector, step) {
   return query.map((x, i) => x + scale * vector[i]);
 }
 
-export default function Swipe({ shared, shopper, live }) {
+export default function Swipe({ shared, shopper, live, onApiError, moment }) {
   // Saved mode: a pool of products with vectors, re-ranked in the browser.
   const [pool, setPool] = useState(null);
   const [query, setQuery] = useState(null);
@@ -55,11 +54,12 @@ export default function Swipe({ shared, shopper, live }) {
   useEffect(reset, [reset]);
 
   // Live: likes become the newest part of the shopper's history; everything seen is left out.
+  // Model only: their past buys would otherwise fill the top of every deck.
   useEffect(() => {
     if (!live) return undefined;
     let current = true;
     setProblem(null);
-    fetchPicks(shopper, LIVE_MOMENT, { k: LIVE_K, history: [...liked].reverse(), exclude: [...seen] })
+    fetchPicks(shopper, moment, { k: LIVE_K, history: [...liked].reverse(), exclude: [...seen], blend: "model" })
       .then((answer) => {
         if (!current) return;
         addProducts(shared.catalog, answer.items);
@@ -67,11 +67,15 @@ export default function Swipe({ shared, shopper, live }) {
         startTop.current ??= ids.slice(0, TOP);
         setLiveItems(ids);
       })
-      .catch((error) => current && setProblem(error.message));
+      .catch((error) => {
+        if (!current) return;
+        if (apiIsDown(error)) onApiError(error);
+        else setProblem(error.message);
+      });
     return () => {
       current = false;
     };
-  }, [live, shopper, liked, seen]);
+  }, [live, shopper, liked, seen, moment]);
 
   const ranking = useMemo(() => {
     // Until the next answer arrives, the previous picks minus the one just swiped.
@@ -149,7 +153,9 @@ export default function Swipe({ shared, shopper, live }) {
           <p className="lede">
             Every like joins your shopping history, and the live model re-ranks all {live.products.toLocaleString("en-GB")}{" "}
             products on sale after each swipe. It predicts what you would buy next, so liking a dress can bring the
-            cardigan that goes with it, not just more dresses.
+            cardigan that goes with it, not just more dresses. Ranked for a {DAYS[moment.day - 1]} in{" "}
+            {MONTHS[moment.month - 1]}, {CHANNELS[moment.channel]}: change the moment on the{" "}
+            <a href="#/moments">Moments</a> page.
           </p>
         ) : (
           <p className="lede">

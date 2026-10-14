@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { checkLive, fetchCustomer } from "./api.js";
+import { apiIsDown, checkLive, fetchCustomer } from "./api.js";
+import { DEFAULT_MOMENT, parseMoment } from "./data.js";
 import LiveBar from "./components/LiveBar.jsx";
 import ShopperPicker from "./components/ShopperPicker.jsx";
 import { colourHex } from "./colours.js";
@@ -7,6 +8,9 @@ import { loadJson } from "./data.js";
 import Moments from "./pages/Moments.jsx";
 import Story from "./pages/Story.jsx";
 import Swipe from "./pages/Swipe.jsx";
+
+// While the API is down, ask again this often (ms), so the site goes live when it comes back.
+const RECHECK_EVERY = 30000;
 
 const PAGES = [
   { path: "moments", label: "Moments", hint: "Shop by the moment you're in" },
@@ -36,6 +40,8 @@ export default function App() {
   const [live, setLive] = useState(undefined);
   // Real customers looked up through the API, by their short ID.
   const [looked, setLooked] = useState({});
+  // The moment being shopped for, shared by Moments and Swipe.
+  const [moment, setMoment] = useState(DEFAULT_MOMENT);
 
   useEffect(() => {
     const onHash = () => setPage(currentPage());
@@ -52,6 +58,16 @@ export default function App() {
   useEffect(() => {
     checkLive().then(setLive);
   }, []);
+
+  // A page whose API call failed: if the API is down, fall back to the saved picks.
+  const onApiError = useCallback((error) => {
+    if (apiIsDown(error)) setLive(null);
+  }, []);
+  useEffect(() => {
+    if (live !== null) return undefined;
+    const timer = setInterval(() => checkLive(true).then((summary) => summary && setLive(summary)), RECHECK_EVERY);
+    return () => clearInterval(timer);
+  }, [live]);
 
   const remember = useCallback(
     (profile) => {
@@ -71,8 +87,9 @@ export default function App() {
 
   const customer = useMemo(() => {
     if (!shared || shopper?.kind !== "customer") return null;
-    return shared.customers.find((c) => c.id === shopper.id) ?? looked[shopper.id] ?? null;
-  }, [shared, shopper, looked]);
+    // Customers looked up live have no saved picks, so they can only be shown while live.
+    return shared.customers.find((c) => c.id === shopper.id) ?? (live ? looked[shopper.id] : null) ?? null;
+  }, [shared, shopper, looked, live]);
 
   // Start as the first sample shopper. A customer looked up live is fetched again after a
   // reload; without the API, a saved choice that is not a sample falls back to the first one.
@@ -87,6 +104,12 @@ export default function App() {
       setShopper(first);
     }
   }, [shared, live, shopper, customer, remember]);
+
+  // A new shopper starts at the moment they really shopped (or a Wednesday in September).
+  const realMoment = customer?.nextVisit?.moment;
+  useEffect(() => {
+    setMoment(realMoment ? parseMoment(realMoment) : DEFAULT_MOMENT);
+  }, [shopper?.kind, shopper?.id, shopper?.age, realMoment]);
 
   useEffect(() => {
     if (!shopper) return;
@@ -112,7 +135,7 @@ export default function App() {
     return <main className="page loading">Opening the shop…</main>;
   }
 
-  const props = { shared, shopper, customer, setShopper, live };
+  const props = { shared, shopper, customer, setShopper, live, onApiError, moment, setMoment };
   return (
     <div className="app" style={accentStyle}>
       <header className="topbar">
@@ -128,7 +151,7 @@ export default function App() {
         </nav>
         <ShopperPicker customers={shared.customers} looked={Object.values(looked)} shopper={shopper} onChange={setShopper} />
       </header>
-      <LiveBar live={live} onCustomer={openCustomer} />
+      <LiveBar live={live} onCustomer={openCustomer} onApiError={onApiError} />
 
       {page === "moments" && <Moments {...props} />}
       {page === "story" && <Story {...props} />}
