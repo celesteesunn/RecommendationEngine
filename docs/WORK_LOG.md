@@ -639,9 +639,138 @@ blowing the 224-pixel photo up until it was blurry. The card is now capped at 38
 
 ---
 
+## Step 17: Cross-checking Siddhi's Weeks 1–2 notebooks
+
+**What we did.** Read Siddhi's Colab notebooks (`week1_data_processing_siddhi.ipynb`,
+`week2_baseline_model_siddhi.ipynb`) and her Week 2 results, and compared her numbers with
+ours.
+
+**Why.** She redid the cleaning and a popularity baseline on her own, with her own code. Where
+two independent pipelines agree, both are more likely to be right.
+
+**What agrees.**
+
+| Number | Siddhi (Colab, PySpark) | Us (`src/data/clean.py`) |
+|---|---|---|
+| Raw transactions | 31,788,324 | 31,788,324 |
+| Transactions after removing exact duplicates | 28,813,419 | 28,813,419 |
+| Customers | 1,371,980 | 1,371,980 |
+| Products | 105,542 | 105,542 |
+| Date range | 20 Sep 2018 – 22 Sep 2020 | the same 105 weeks |
+
+So our cleaning step is confirmed by an independent run.
+
+**What differs, and why we keep our version.**
+
+| Point | Siddhi's notebook | Our pipeline |
+|---|---|---|
+| Repeated purchases of the same item on the same day | Dropped | Kept as a `quantity` count, so popularity still counts them |
+| Article IDs | Read as numbers, so `0108775015` becomes `108775015` | Kept as text, so they match the photos and the model's vocabulary |
+| Popularity baseline | 500,000-row sample, 80/20 time split: recall@10 = 0.0073 | Full data, final week as test: recall@12 = 0.0255 |
+
+The two baseline numbers can't be compared directly (different sample, split and K). Both say
+the same thing, though: best-sellers alone are a weak recommender, which is why the
+two-tower model exists.
+
+**Output.** No code merged. Her branch duplicates `src/`, so the useful outcome is this
+cross-check. Her next task in `docs/TEAM_TASKS.md` is the load test (S4), which now has a
+real API to test.
+
+---
+
+## Step 18: The live recommendation API (`src/api/`)
+
+**What we did.** Built a FastAPI service that runs the exported two-tower model on request,
+for **any** of the 1,371,980 customers or for a new visitor, at any moment.
+
+**Why.** Until now the website could only show picks saved in advance for 19 sample shoppers.
+A real recommender answers whoever turns up, at the moment they turn up.
+
+**How one request works.**
+
+```text
+customer ID + moment ──► look up their profile and last 20 purchases (in memory)
+                     ──► query tower (the exported SavedModel) ──► 64-number customer vector
+                     ──► FAISS: the products with the highest dot product ──► top k, with names
+```
+
+FAISS holds the vectors of the 29,009 products on sale. It uses an exact search: at this size
+it takes about a millisecond, so an approximate index isn't needed yet.
+
+**Endpoints.**
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /health` | Model version, and how many customers and products are loaded |
+| `GET /customers/random` | A random real customer from the test week |
+| `GET /customers/{id}` | Profile, 12-week purchase timeline, style DNA, and (for test-week customers) what they really bought next. An ID can be shortened to its first 8 characters |
+| `GET /customers/{id}/recommendations` | Their picks for a day, month and channel |
+| `POST /recommendations` | Picks for a new visitor, or for a customer plus the products they just liked |
+
+Interactive documentation is at http://localhost:8000/docs while the API runs.
+
+**A bug the checks caught.** Picks for a new visitor matched the saved ones only 15 times
+out of 24. In training, an unknown customer got the "unknown" slot of the customer table. In
+the exported model, an empty ID means "padding", a different slot. A new visitor now gets an
+ID the model has never seen (`new-visitor`), and the match is 24 out of 24.
+
+**Numbers.**
+
+| | |
+|---|---|
+| Start-up | About 25 seconds; 2.7 GB of memory (mostly the 1.4 million customer profiles) |
+| One request | About 10 ms. The first call builds TensorFlow's graph (2 seconds), so the API makes one call while it starts |
+| Same answers as the saved data | 24 of 24 for a sample shopper at the moment they really shopped, and for a new visitor |
+
+The API runs on the CPU on purpose. On the GPU, TF32 maths would change the scores slightly
+(see Step 14).
+
+**Tests.** 8 new tests (`tests/test_api.py`) build a tiny exported model and tiny tables, then
+check that the API's vectors equal the training code's (including for a new visitor), that
+products are ranked by dot product, that excluded products are skipped, that IDs and prefixes
+are found, and that every endpoint answers correctly. They need `httpx`, now in
+`requirements-dev.txt`. All 44 tests pass. (`tests/test_recommender.py` is older, imports a
+package that is not in the repository and was already failing, so it is left out.)
+
+**Output.** Run it in Ubuntu from the repository root:
+`uvicorn src.api.main:app --port 8000`.
+
+---
+
+## Step 19: The website goes live
+
+**What we did.** Connected all three Kairos pages to the API. The saved data files stay as a
+fallback.
+
+**Why.** This is the step that turns the website from a showcase of saved results into a
+working recommender.
+
+| Page | Live behaviour |
+|---|---|
+| Every page | A green **Live** bar shows the model version. Type any customer ID, or press **Surprise me** for a random real customer from the test week |
+| Moments | Every change of day, month or channel asks the model again; a tag shows how long it took (about 10–20 ms) |
+| Style story | Works for any customer: their 12-week timeline, style DNA and the model's next chapter. For test-week customers, "Reveal what they really bought" checks the model against reality |
+| Swipe | Each like joins the shopper's history, and the model re-ranks all 29,009 products on sale. The meter shows how much of the top 24 has changed |
+
+**Something the live Swipe shows.** Liking three dresses doesn't bring more dresses; it brings
+sweaters and cardigans. The model learned what people buy *after* certain products, not what
+looks similar, and the page says so.
+
+**How it fits.** The Vite dev server forwards `/api` to the API, so the browser talks to one
+address. If the API isn't running, the site says so and uses the saved picks.
+
+**Checked in the browser.** Live picks on all three pages, a random customer, the reveal
+switch, swiping (one request per swipe), a reload that restores a live customer, and the
+fallback with the API stopped. The production build succeeds.
+
+---
+
 ## What comes next
 
 | Next step | Why | Output |
 |---|---|---|
-| FastAPI backend | Live recommendations for any customer, not just the 19 samples | `src/api/` |
-| Connect the website to the API | Swap the data files for live calls | The same pages, live |
+| Photos for all products on sale | Live picks reach far beyond the 3,047 photos downloaded, so many show as colour cards | `scripts/download_images.py` for the 29,009 products (about 130 MB, never committed) |
+| Redis feature store | Customer profiles take most of the API's 2.7 GB and 25-second start-up; Redis would hold them once for any number of API workers | `src/serving/` loader + Redis lookups in `src/api/` |
+| Load test (Siddhi, S4) | Shows how many requests per second the API handles, and the slowest 5% of response times | Locust script + results in `reports/` |
+| Airflow DAG | Retrain, evaluate, export and reload the API every week without manual steps | `dags/` |
+| One-command start | Start the API and the website together (Docker Compose) for the final demo | `docker-compose.yml` |
