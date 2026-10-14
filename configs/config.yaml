@@ -56,7 +56,12 @@ evaluation:
   # The model ranks only products sold in this many weeks before the cut-off
   # (must be one of features.popularity_weeks).
   candidate_weeks: 4
+  # Blends that put at most N of the customer's own past products first, then the model's.
+  repurchase_caps: [2, 4, 6]
 
 serving:
   top_k: 12
   ann_candidates: 100
+  # A real customer's list starts with up to this many of their own recent products, then the
+  # model's picks. Best blend in the evaluation that still leaves half the top 12 to the model.
+  repurchase_slots: 6

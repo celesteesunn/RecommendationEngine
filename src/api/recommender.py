@@ -11,7 +11,9 @@ Everything is loaded once, when the API starts, and kept in memory:
 
 A request turns a customer and a moment (day, month, online or in store) into a customer
 vector with the query tower, and FAISS finds the products with the highest dot product with
-it: the same score the model was trained and evaluated with. Only the exported model is used,
+it: the same score the model was trained and evaluated with. By default a real customer's
+list starts with up to 6 of their own recent products ("bought before"), then the model's
+picks: the blend that scored best in the evaluation (reports/evaluation_2026-10-05.md). Only the exported model is used,
 not the training code, so the API needs no TensorFlow Recommenders.
 """
 
@@ -108,8 +110,9 @@ def style_dna(article_ids: list[str], catalog: dict[str, dict]) -> dict[str, lis
 
 class Recommender:
     def __init__(self, model_dir: Path, processed: Path, training_weeks: list[int], history_length: int,
-                 max_days_since: int, max_k: int):
+                 max_days_since: int, max_k: int, repurchase_slots: int = 6):
         self.version = model_dir.name
+        self.repurchase_slots = repurchase_slots
         self.history_length = history_length
         self.max_days_since = max_days_since
         self.max_k = max_k
@@ -136,7 +139,7 @@ class Recommender:
         # Purchases in the training window, grouped by customer row, for the timelines.
         window = (ds.field("week") >= training_weeks[0]) & (ds.field("week") <= training_weeks[1])
         purchases = ds.dataset(processed / "transactions", format="parquet", partitioning="hive").to_table(
-            columns=["customer_id", "article_id", "t_dat", "sales_channel_id"], filter=window)
+            columns=["customer_id", "article_id", "t_dat", "sales_channel_id", "quantity"], filter=window)
         user_row = pc.index_in(purchases["customer_id"], value_set=users["customer_id"].combine_chunks())
         purchases = purchases.append_column("user_row", user_row).drop_columns(["customer_id"])
         self.purchases = purchases.sort_by([("user_row", "ascending"), ("t_dat", "ascending")])
@@ -166,6 +169,7 @@ class Recommender:
             history_length=config["model"]["history_length"],
             max_days_since=config["features"]["max_days_since"],
             max_k=config["serving"]["ann_candidates"],
+            repurchase_slots=config["serving"]["repurchase_slots"],
         )
 
     # ---- customers ----
@@ -197,13 +201,25 @@ class Recommender:
             history=list(user["history"]) + list(extra_history), days_since_last_purchase=float(days),
         )
 
+    def purchases_of(self, row: int) -> list[dict]:
+        """A customer's purchases in the training window, oldest first."""
+        start, end = np.searchsorted(self.purchase_rows, [row, row + 1])
+        return self.purchases.slice(start, end - start).to_pylist()
+
+    def own_products(self, row: int) -> list[str]:
+        """Their own products, most units first, then most recent (as the repurchase baseline)."""
+        units, last = Counter(), {}
+        for p in self.purchases_of(row):
+            units[p["article_id"]] += p["quantity"]
+            last[p["article_id"]] = max(last.get(p["article_id"], p["t_dat"]), p["t_dat"])
+        return sorted(units, key=lambda a: (-units[a], -last[a].toordinal(), a))
+
     def profile(self, row: int) -> dict:
         """A customer as the website shows them: profile, timeline, style DNA, real next visit."""
         user = self.users.slice(row, 1).to_pylist()[0]
         cid = user["customer_id"]
-        start, end = np.searchsorted(self.purchase_rows, [row, row + 1])
         purchases = [{"article_id": p["article_id"], "date": p["t_dat"].isoformat(), "online": p["sales_channel_id"] == 2}
-                     for p in self.purchases.slice(start, end - start).to_pylist()]
+                     for p in self.purchases_of(row)]
         bought_ids = [p["article_id"] for p in purchases] or list(user["history"])
 
         next_visit, bought_next = None, []
@@ -251,20 +267,24 @@ class Recommender:
         )
         return outputs["embedding"].numpy().astype(np.float32)
 
-    def recommend(self, query: Query, moment: Moment, k: int, exclude=()) -> list[dict]:
-        """The k products with the highest score for this shopper at this moment, best first."""
+    def recommend(self, query: Query, moment: Moment, k: int, exclude=(), first=()) -> list[dict]:
+        """`first` (e.g. the customer's own products), then the products with the highest score
+        for this shopper at this moment, best first: k in all, none of them in `exclude`."""
         k = max(1, min(k, self.max_k))
         exclude = set(exclude)
+        picks = [{"articleId": a, "source": "bought before", "score": None, **self.catalog.get(a, {})}
+                 for a in dict.fromkeys(first) if a not in exclude][:k]
+        exclude |= {p["articleId"] for p in picks}
         wanted = min(k + len(exclude), self.index.ntotal)
         scores, rows = self.index.search(self.customer_vector(query, moment), wanted)
-        picks = []
         for score, row in zip(scores[0], rows[0]):
+            if len(picks) == k:
+                break
             if row < 0 or self.item_ids[row] in exclude:
                 continue
             article_id = self.item_ids[row]
-            picks.append({"articleId": article_id, "score": round(float(score), 4), **self.catalog.get(article_id, {})})
-            if len(picks) == k:
-                break
+            picks.append({"articleId": article_id, "source": "model", "score": round(float(score), 4),
+                          **self.catalog.get(article_id, {})})
         return picks
 
     def summary(self) -> dict:

@@ -11,6 +11,9 @@ by dot product are taken from the products sold in the last few weeks before the
     two_tower + fallback    the model for warm customers, age-group best-sellers for cold ones
                             (the serving strategy from the blueprint)
     repurchase + two_tower  the customer's own past products first, then the model's
+    repurchase (up to N) + two_tower
+                            at most N of their own products first (evaluation.repurchase_caps),
+                            so the model still fills most of the list
 
 Writes models/<version>/metrics.json and reports/evaluation_<version>.md.
 """
@@ -121,11 +124,14 @@ def main() -> int:
     combined = {c: fallback[c] if c in cold else model_recs[c] for c in customers}
     own = own_purchases(window)
     blended = {c: fill_up(own.get(c, [])[:k], model_recs[c], k) for c in customers}
+    capped = {n: {c: fill_up(own.get(c, [])[:n], model_recs[c], k) for c in customers}
+              for n in config["evaluation"]["repurchase_caps"]}
 
     results = {
         "two_tower": evaluate(model_recs, test, k_values),
         "two_tower + fallback": evaluate(combined, test, k_values),
         "repurchase + two_tower": evaluate(blended, test, k_values),
+        **{f"repurchase (up to {n}) + two_tower": evaluate(recs, test, k_values) for n, recs in capped.items()},
     }
     (model_dir / "metrics.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
 

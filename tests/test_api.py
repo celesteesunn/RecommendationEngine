@@ -87,6 +87,7 @@ def built(tmp_path_factory):
         "customer_id": [ANNA, ANNA, ANNA, CARA, ANNA],
         "t_dat": [dt.date(2020, 8, 1), dt.date(2020, 9, 1), dt.date(2020, 9, 6), dt.date(2020, 9, 15), dt.date(2019, 1, 1)],
         "sales_channel_id": [1, 2, 1, 2, 2],
+        "quantity": [2, 1, 1, 1, 1],
         "week": [98, 102, 103, 103, 20],
     }), processed / "transactions", partition_cols=["week"])
     pq.write_table(pa.table({
@@ -167,6 +168,22 @@ def test_recommend_ranks_by_dot_product_and_skips_excluded(built):
     assert len(recommender.recommend(query, moment, k=99)) == 3
 
 
+def test_own_products_most_units_then_most_recent(built):
+    recommender = built[3]
+    # 0001 was bought twice; 0002 (6 Sep) is more recent than 0003 (1 Sep); 0004 is too old.
+    assert recommender.own_products(recommender.find_customer(ANNA)) == ["0001", "0002", "0003"]
+    assert recommender.own_products(recommender.find_customer(BEN)) == []
+
+
+def test_recommend_puts_first_items_first_without_repeats(built):
+    recommender = built[3]
+    query = recommender.query_for(recommender.find_customer(ANNA))
+    picks = recommender.recommend(query, Moment(1, 12, 1), k=3, exclude=["0002"], first=["0002", "0005"])
+    assert picks[0]["articleId"] == "0005" and picks[0]["source"] == "bought before" and picks[0]["score"] is None
+    assert [p["source"] for p in picks[1:]] == ["model", "model"]
+    assert len({p["articleId"] for p in picks}) == 3 and "0002" not in {p["articleId"] for p in picks}
+
+
 def test_profile_has_timeline_style_and_real_next_visit(built):
     recommender = built[3]
     profile = recommender.profile(recommender.find_customer(ANNA))
@@ -208,3 +225,13 @@ def test_api_recommendations(client):
     liked = client.post("/recommendations", json={"customerId": "abcdef01", "history": ["0004"], "k": 1}).json()
     assert liked["customerId"] == ANNA and len(liked["items"]) == 1
     assert client.post("/recommendations", json={"ageBucket": "99+"}).status_code == 422
+
+
+def test_api_blends_own_products_first_by_default(client):
+    best = client.get("/customers/abcdef01/recommendations", params={"k": 3}).json()
+    assert best["blend"] == "best"
+    assert [p["articleId"] for p in best["items"]] == ["0001", "0002", "0003"]
+    model_only = client.get("/customers/abcdef01/recommendations", params={"k": 3, "blend": "model"}).json()
+    assert model_only["blend"] == "model" and {p["source"] for p in model_only["items"]} == {"model"}
+    # A new visitor has nothing of their own, so the list is the model's.
+    assert client.post("/recommendations", json={"k": 2}).json()["blend"] == "model"

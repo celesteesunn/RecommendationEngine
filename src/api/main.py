@@ -14,6 +14,9 @@ http://localhost:8000/docs lists every endpoint and lets you try them.
                                                   the products they just liked (Swipe page)
 
 A customer can be given by their full ID or its first 8 characters, as the website shows it.
+For a real customer, blend=best (the default) puts up to 6 of their own recent products first
+and fills the rest with the model's picks: the best blend in the evaluation. blend=model gives
+the model's picks only. Every item says where it came from ("source").
 """
 
 import time
@@ -29,6 +32,8 @@ from src.api.recommender import AmbiguousId, Moment, Recommender
 from src.api.recommender import Query as ShopperQuery
 
 AgeBucket = Literal["16-24", "25-34", "35-44", "45-54", "55+", "unknown"]
+Blend = Literal["best", "model"]
+BLEND_HELP = "best: up to 6 of their own recent products first, then the model's; model: the model's only"
 
 
 class RecommendationRequest(BaseModel):
@@ -40,6 +45,7 @@ class RecommendationRequest(BaseModel):
     channel: int = Field(2, ge=1, le=2, description="1 = in store, 2 = online")
     k: int = Field(12, ge=1, le=100)
     exclude: list[str] = Field([], description="Article IDs not to recommend (e.g. already seen)")
+    blend: Blend = Field("best", description=BLEND_HELP + " (real customers only)")
 
 
 def create_app(load: Callable[[], Recommender]) -> FastAPI:
@@ -66,10 +72,13 @@ def create_app(load: Callable[[], Recommender]) -> FastAPI:
         return row
 
     def answer(recommender: Recommender, query: ShopperQuery, moment: Moment, k: int, exclude: list[str],
-               started: float, **extra) -> dict:
-        items = recommender.recommend(query, moment, k, exclude)
-        return {"modelVersion": recommender.version, "moment": moment.key, **extra, "items": items,
-                "tookMs": round((time.perf_counter() - started) * 1000, 1)}
+               started: float, row: int | None = None, blend: str = "model", **extra) -> dict:
+        first = []
+        if row is not None and blend == "best":
+            first = recommender.own_products(row)[:recommender.repurchase_slots]
+        items = recommender.recommend(query, moment, k, exclude, first)
+        return {"modelVersion": recommender.version, "moment": moment.key, "blend": blend if first else "model",
+                **extra, "items": items, "tookMs": round((time.perf_counter() - started) * 1000, 1)}
 
     @app.get("/health")
     def health(request: Request) -> dict:
@@ -93,24 +102,28 @@ def create_app(load: Callable[[], Recommender]) -> FastAPI:
         channel: int = Query(2, ge=1, le=2, description="1 = in store, 2 = online"),
         k: int = Query(12, ge=1, le=100),
         exclude: list[str] = Query([]),
+        blend: Blend = Query("best", description=BLEND_HELP),
     ) -> dict:
         started = time.perf_counter()
         recommender = model(request)
-        query = recommender.query_for(customer_row(recommender, customer_id))
+        row = customer_row(recommender, customer_id)
+        query = recommender.query_for(row)
         return answer(recommender, query, Moment(day, month, channel), k, exclude, started,
-                      customerId=query.customer_id)
+                      row=row, blend=blend, customerId=query.customer_id)
 
     @app.post("/recommendations")
     def recommendations(request: Request, body: RecommendationRequest) -> dict:
         started = time.perf_counter()
         recommender = model(request)
+        row = None
         if body.customerId:
-            query = recommender.query_for(customer_row(recommender, body.customerId), body.history)
+            row = customer_row(recommender, body.customerId)
+            query = recommender.query_for(row, body.history)
         else:
             query = ShopperQuery(age_bucket=body.ageBucket, history=body.history,
                                  days_since_last_purchase=float(recommender.max_days_since))
         return answer(recommender, query, Moment(body.day, body.month, body.channel), body.k, body.exclude,
-                      started, customerId=body.customerId and query.customer_id)
+                      started, row=row, blend=body.blend, customerId=body.customerId and query.customer_id)
 
     return app
 

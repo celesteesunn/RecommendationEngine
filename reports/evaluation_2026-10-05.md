@@ -11,9 +11,12 @@ Baselines come from `reports/baselines.json`.
 | global_popularity | 0.0255 | 0.0729 | 0.1181 | 0.0158 | 0.0088 |
 | age_group_popularity | 0.0280 | 0.0786 | 0.1269 | 0.0171 | 0.0095 |
 | repurchase | 0.0518 | 0.1010 | 0.1442 | 0.0342 | 0.0227 |
-| **two_tower** | 0.0358 | 0.0896 | 0.1361 | 0.0225 | 0.0130 |
-| **two_tower + fallback** | 0.0328 | 0.0865 | 0.1345 | 0.0201 | 0.0112 |
-| **repurchase + two_tower** | 0.0534 | 0.1064 | 0.1507 | 0.0355 | 0.0235 |
+| **two_tower** | 0.0358 | 0.0895 | 0.1361 | 0.0225 | 0.0130 |
+| **two_tower + fallback** | 0.0328 | 0.0864 | 0.1345 | 0.0201 | 0.0112 |
+| **repurchase + two_tower** | 0.0533 | 0.1063 | 0.1507 | 0.0355 | 0.0235 |
+| **repurchase (up to 2) + two_tower** | 0.0461 | 0.0978 | 0.1427 | 0.0322 | 0.0214 |
+| **repurchase (up to 4) + two_tower** | 0.0506 | 0.1020 | 0.1462 | 0.0345 | 0.0229 |
+| **repurchase (up to 6) + two_tower** | 0.0527 | 0.1042 | 0.1481 | 0.0353 | 0.0233 |
 
 ## Warm customers (33,168)
 
@@ -22,9 +25,12 @@ Baselines come from `reports/baselines.json`.
 | global_popularity | 0.0246 | 0.0727 | 0.1170 | 0.0161 | 0.0091 |
 | age_group_popularity | 0.0272 | 0.0771 | 0.1239 | 0.0173 | 0.0097 |
 | repurchase | 0.0637 | 0.1156 | 0.1575 | 0.0409 | 0.0261 |
-| **two_tower** | 0.0372 | 0.0935 | 0.1396 | 0.0236 | 0.0133 |
-| **two_tower + fallback** | 0.0372 | 0.0935 | 0.1396 | 0.0236 | 0.0133 |
-| **repurchase + two_tower** | 0.0638 | 0.1208 | 0.1644 | 0.0411 | 0.0262 |
+| **two_tower** | 0.0372 | 0.0935 | 0.1396 | 0.0235 | 0.0133 |
+| **two_tower + fallback** | 0.0372 | 0.0935 | 0.1396 | 0.0235 | 0.0133 |
+| **repurchase + two_tower** | 0.0638 | 0.1208 | 0.1645 | 0.0411 | 0.0262 |
+| **repurchase (up to 2) + two_tower** | 0.0498 | 0.1040 | 0.1486 | 0.0348 | 0.0223 |
+| **repurchase (up to 4) + two_tower** | 0.0582 | 0.1119 | 0.1550 | 0.0390 | 0.0250 |
+| **repurchase (up to 6) + two_tower** | 0.0625 | 0.1164 | 0.1591 | 0.0408 | 0.0259 |
 
 ## Cold customers (35,816)
 
@@ -33,6 +39,9 @@ Baselines come from `reports/baselines.json`.
 | global_popularity | 0.0263 | 0.0732 | 0.1191 | 0.0154 | 0.0084 |
 | age_group_popularity | 0.0287 | 0.0799 | 0.1297 | 0.0169 | 0.0093 |
 | repurchase | 0.0408 | 0.0874 | 0.1319 | 0.0281 | 0.0196 |
-| **two_tower** | 0.0345 | 0.0859 | 0.1329 | 0.0215 | 0.0127 |
+| **two_tower** | 0.0345 | 0.0858 | 0.1329 | 0.0215 | 0.0127 |
 | **two_tower + fallback** | 0.0287 | 0.0799 | 0.1297 | 0.0169 | 0.0093 |
-| **repurchase + two_tower** | 0.0437 | 0.0930 | 0.1380 | 0.0303 | 0.0209 |
+| **repurchase + two_tower** | 0.0437 | 0.0929 | 0.1380 | 0.0302 | 0.0209 |
+| **repurchase (up to 2) + two_tower** | 0.0426 | 0.0919 | 0.1373 | 0.0297 | 0.0205 |
+| **repurchase (up to 4) + two_tower** | 0.0437 | 0.0929 | 0.1380 | 0.0302 | 0.0209 |
+| **repurchase (up to 6) + two_tower** | 0.0437 | 0.0929 | 0.1380 | 0.0302 | 0.0209 |
