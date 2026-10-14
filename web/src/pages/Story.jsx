@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { addProducts, fetchPicks } from "../api.js";
 import ProductCard, { ProductVisual } from "../components/ProductCard.jsx";
 import { colourHex, inkFor } from "../colours.js";
 import { CHANNELS, DAYS, MONTHS, formatDate, loadJson, parseMoment } from "../data.js";
 import { reasonsFor, shopperFacts } from "../reasons.js";
 
 const PER_MONTH = 6;
+// Customers outside the test week have no known next visit: show a Wednesday in September, online.
+const DEFAULT_NEXT = "d4-m9-c2";
 
 function monthLabel(key) {
   const [year, month] = key.split("-").map(Number);
@@ -40,16 +43,28 @@ function StyleDna({ dna }) {
   );
 }
 
-export default function Story({ shared, customer, setShopper }) {
-  const [table, setTable] = useState(null);
+export default function Story({ shared, shopper, customer, setShopper, live }) {
+  const [next, setNext] = useState(null);
   const [reveal, setReveal] = useState(false);
   const timeline = useRef(null);
+  const nextKey = customer?.nextVisit?.moment ?? DEFAULT_NEXT;
 
   useEffect(() => {
     setReveal(false);
-    setTable(null);
-    if (customer) loadJson(`moments/${customer.id}.json`).then(setTable);
-  }, [customer]);
+    setNext(null);
+    if (!customer) return undefined;
+    let current = true;
+    const picks = live
+      ? fetchPicks(shopper, parseMoment(nextKey), { k: 12 }).then((answer) => {
+          addProducts(shared.catalog, answer.items);
+          return answer.items.map((item) => item.articleId);
+        })
+      : loadJson(`moments/${customer.id}.json`).then((table) => table[nextKey].slice(0, 12));
+    picks.then((ids) => current && setNext(ids)).catch(() => current && setNext([]));
+    return () => {
+      current = false;
+    };
+  }, [customer, live]);
 
   const months = useMemo(() => {
     if (!customer) return [];
@@ -88,11 +103,12 @@ export default function Story({ shared, customer, setShopper }) {
     );
   }
 
-  const moment = parseMoment(customer.nextVisit.moment);
-  const next = table ? table[customer.nextVisit.moment].slice(0, 12) : [];
+  const moment = parseMoment(nextKey);
   const bought = new Set(customer.boughtInTestWeek);
   const first = customer.purchases[0];
   const last = customer.purchases[customer.purchases.length - 1];
+  // Live profiles carry only the 12 weeks the model learned from; the samples carry everything.
+  const isSample = shared.customers.some((c) => c.id === customer.id);
 
   return (
     <main className="page">
@@ -100,11 +116,13 @@ export default function Story({ shared, customer, setShopper }) {
         <div>
           <p className="eyebrow">Style story · Shopper {customer.id}</p>
           <h1 className="headline">
-            {customer.purchases.length} pieces since {formatDate(first.date)}.
+            {first
+              ? `${customer.purchases.length} pieces ${isSample ? `since ${formatDate(first.date)}` : "in the 12 weeks before 16 Sep 2020"}.`
+              : "No purchases in the 12 weeks the model learned from."}
           </h1>
           <p className="lede">
             Aged {customer.ageBucket}, club member status {customer.club.toLowerCase()}, shops online{" "}
-            {Math.round(customer.onlineShare * 100)}% of the time. Last bought on {formatDate(last.date)}.
+            {Math.round(customer.onlineShare * 100)}% of the time.{last && ` Last bought on ${formatDate(last.date)}.`}
           </p>
         </div>
         <StyleDna dna={customer.styleDna} />
@@ -129,7 +147,9 @@ export default function Story({ shared, customer, setShopper }) {
           <div className="timeline-month timeline-next">
             <span className="timeline-label">Next</span>
             <span className="timeline-next-text">
-              {DAYS[moment.day - 1]}, {formatDate(customer.nextVisit.date)}, {CHANNELS[moment.channel]}
+              {customer.nextVisit
+                ? `${DAYS[moment.day - 1]}, ${formatDate(customer.nextVisit.date)}, ${CHANNELS[moment.channel]}`
+                : "Not in the test week"}
             </span>
           </div>
         </div>
@@ -137,22 +157,29 @@ export default function Story({ shared, customer, setShopper }) {
 
       <section className="feed-head">
         <h2 className="section-title">The next chapter</h2>
-        <label className="switch">
-          <input type="checkbox" checked={reveal} onChange={(e) => setReveal(e.target.checked)} />
-          <span>Reveal what they really bought</span>
-        </label>
+        {bought.size > 0 && (
+          <label className="switch">
+            <input type="checkbox" checked={reveal} onChange={(e) => setReveal(e.target.checked)} />
+            <span>Reveal what they really bought</span>
+          </label>
+        )}
       </section>
       <p className="lede">
-        What the model expected for their next visit on {DAYS[moment.day - 1]} {formatDate(customer.nextVisit.date)},{" "}
-        {CHANNELS[moment.channel]}.
+        {customer.nextVisit
+          ? `What the model expected for their next visit on ${DAYS[moment.day - 1]} ${formatDate(customer.nextVisit.date)}, ${CHANNELS[moment.channel]}.`
+          : `They did not shop in the test week, so this is what the model would pick for a ${DAYS[moment.day - 1]} in ${MONTHS[moment.month - 1]}, ${CHANNELS[moment.channel]}.`}
       </p>
       {reveal && (
         <p className="reveal-note">
-          They really bought {customer.boughtInTestWeek.length} products that week;{" "}
-          {next.filter((id) => bought.has(id)).length} of them are in these 12 picks.
+          They really bought {customer.boughtInTestWeek.length}{" "}
+          {customer.boughtInTestWeek.length === 1 ? "product that week; it is" : "products that week;"}{" "}
+          {customer.boughtInTestWeek.length === 1
+            ? (next.includes(customer.boughtInTestWeek[0]) ? "" : "not ")
+            : `${next.filter((id) => bought.has(id)).length} of them are `}
+          in these 12 picks.
         </p>
       )}
-      {!table ? (
+      {!next ? (
         <p className="loading">Writing the next chapter…</p>
       ) : (
         <div className="grid">

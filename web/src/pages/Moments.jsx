@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { addProducts, fetchPicks } from "../api.js";
 import ProductCard from "../components/ProductCard.jsx";
 import { CHANNELS, DAYS, MONTHS, formatDate, loadJson, momentKey, parseMoment, recommendationsFile, season } from "../data.js";
 import { reasonsFor, shopperFacts } from "../reasons.js";
@@ -25,10 +26,13 @@ function InlineSelect({ value, options, onChange, label }) {
   );
 }
 
-export default function Moments({ shared, shopper, customer }) {
-  const realMoment = customer ? parseMoment(customer.nextVisit.moment) : null;
+export default function Moments({ shared, shopper, customer, live }) {
+  const realMoment = customer?.nextVisit ? parseMoment(customer.nextVisit.moment) : null;
   const [moment, setMoment] = useState(realMoment ?? DEFAULT_MOMENT);
+  // Saved picks: every moment at once. Live picks: the current moment, asked from the model.
   const [table, setTable] = useState(null);
+  const [livePicks, setLivePicks] = useState(null);
+  const [problem, setProblem] = useState(null);
   const [reveal, setReveal] = useState(false);
   // The picks shown for the previous moment, to highlight what changed.
   const previous = useRef({ key: null, picks: [] });
@@ -39,13 +43,33 @@ export default function Moments({ shared, shopper, customer }) {
     setReveal(false);
     previous.current = { key: null, picks: [] };
     setTable(null);
-    loadJson(recommendationsFile(shopper)).then(setTable);
+    setLivePicks(null);
+    if (!live) loadJson(recommendationsFile(shopper)).then(setTable);
   }, [shopper.kind, shopper.id, shopper.age]);
+
+  // Live: ask the model for this moment. The previous picks stay on screen until the answer comes.
+  useEffect(() => {
+    if (!live) return undefined;
+    let current = true;
+    setProblem(null);
+    fetchPicks(shopper, moment, { k: REVEAL_SHOWN })
+      .then((answer) => {
+        if (!current) return;
+        addProducts(shared.catalog, answer.items);
+        setLivePicks({ key: answer.moment, ids: answer.items.map((item) => item.articleId), tookMs: answer.tookMs });
+      })
+      .catch((error) => current && setProblem(error.message));
+    return () => {
+      current = false;
+    };
+  }, [live, shopper.kind, shopper.id, shopper.age, moment.day, moment.month, moment.channel]);
 
   // Revealing shows the full top 24, so every real purchase the model found is visible.
   const shown = reveal ? REVEAL_SHOWN : SHOWN;
-  const picks = useMemo(() => (table ? table[momentKey(moment)].slice(0, shown) : []), [table, moment, shown]);
-  const key = momentKey(moment);
+  // The moment the picks on screen belong to (live picks can still be the previous moment's).
+  const key = live ? livePicks?.key : table && momentKey(moment);
+  const fullList = useMemo(() => (live ? livePicks?.ids : table?.[key]) ?? [], [live, livePicks, table, key]);
+  const picks = useMemo(() => fullList.slice(0, shown), [fullList, shown]);
   const fresh = useMemo(() => {
     const before = previous.current;
     if (!before.key || before.key === key) return new Set();
@@ -57,7 +81,7 @@ export default function Moments({ shared, shopper, customer }) {
 
   const facts = useMemo(() => shopperFacts(customer), [customer]);
   const bought = new Set(customer?.boughtInTestWeek ?? []);
-  const fullList = table ? table[momentKey(moment)] : [];
+  const canReveal = bought.size > 0;
   const hits = fullList.filter((id) => bought.has(id)).length;
   const isRealMoment = realMoment && momentKey(realMoment) === momentKey(moment);
   const update = (field) => (value) => setMoment((m) => ({ ...m, [field]: value }));
@@ -108,8 +132,9 @@ export default function Moments({ shared, shopper, customer }) {
             <>Top {shown} picks for this moment. </>
           )}
           {isRealMoment && <span className="tag">This is when they really shopped: {formatDate(customer.nextVisit.date)}</span>}
+          {live && livePicks && <span className="tag tag-live">Live from the model · {Math.round(livePicks.tookMs)} ms</span>}
         </p>
-        {customer && (
+        {canReveal && (
           <label className="switch">
             <input type="checkbox" checked={reveal} onChange={(e) => setReveal(e.target.checked)} />
             <span>Reveal what they really bought</span>
@@ -117,7 +142,7 @@ export default function Moments({ shared, shopper, customer }) {
         )}
       </section>
 
-      {reveal && customer && (
+      {reveal && canReveal && (
         <p className="reveal-note">
           {hits > 0
             ? `${hits} of the ${customer.boughtInTestWeek.length} products this shopper really bought that week ${hits === 1 ? "is" : "are"} in the model's top ${fullList.length} for this moment, marked below.`
@@ -125,7 +150,9 @@ export default function Moments({ shared, shopper, customer }) {
         </p>
       )}
 
-      {!table ? (
+      {problem ? (
+        <p className="notice">The model could not be reached: {problem}</p>
+      ) : !(live ? livePicks : table) ? (
         <p className="loading">Finding picks…</p>
       ) : (
         <div className="grid">

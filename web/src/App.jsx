@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { checkLive, fetchCustomer } from "./api.js";
+import LiveBar from "./components/LiveBar.jsx";
 import ShopperPicker from "./components/ShopperPicker.jsx";
 import { colourHex } from "./colours.js";
 import { loadJson } from "./data.js";
@@ -30,6 +32,10 @@ export default function App() {
   const [shared, setShared] = useState(null);
   const [error, setError] = useState(null);
   const [shopper, setShopper] = useState(savedShopper);
+  // undefined while checking, then the API's summary, or null when it is not running.
+  const [live, setLive] = useState(undefined);
+  // Real customers looked up through the API, by their short ID.
+  const [looked, setLooked] = useState({});
 
   useEffect(() => {
     const onHash = () => setPage(currentPage());
@@ -43,17 +49,44 @@ export default function App() {
       .catch(setError);
   }, []);
 
+  useEffect(() => {
+    checkLive().then(setLive);
+  }, []);
+
+  const remember = useCallback(
+    (profile) => {
+      for (const [id, details] of Object.entries(profile.products)) shared.catalog[id] ??= details;
+      setLooked((all) => ({ ...all, [profile.id]: profile }));
+      return profile;
+    },
+    [shared],
+  );
+  const openCustomer = useCallback(
+    (profile) => {
+      remember(profile);
+      setShopper({ kind: "customer", id: profile.id, customerId: profile.customerId });
+    },
+    [remember],
+  );
+
   const customer = useMemo(() => {
     if (!shared || shopper?.kind !== "customer") return null;
-    return shared.customers.find((c) => c.id === shopper.id) ?? null;
-  }, [shared, shopper]);
+    return shared.customers.find((c) => c.id === shopper.id) ?? looked[shopper.id] ?? null;
+  }, [shared, shopper, looked]);
 
-  // Start as the first real shopper, or fix a saved choice that no longer exists.
+  // Start as the first sample shopper. A customer looked up live is fetched again after a
+  // reload; without the API, a saved choice that is not a sample falls back to the first one.
   useEffect(() => {
-    if (!shared) return;
-    const valid = shopper?.kind === "guest" || shared.customers.some((c) => c.id === shopper?.id);
-    if (!valid) setShopper({ kind: "customer", id: shared.customers[0].id });
-  }, [shared, shopper]);
+    if (!shared || live === undefined) return;
+    const first = { kind: "customer", id: shared.customers[0].id };
+    if (!shopper) return setShopper(first);
+    if (shopper.kind === "guest" || customer) return;
+    if (live && shopper.customerId) {
+      fetchCustomer(shopper.customerId).then(remember).catch(() => setShopper(first));
+    } else {
+      setShopper(first);
+    }
+  }, [shared, live, shopper, customer, remember]);
 
   useEffect(() => {
     if (!shopper) return;
@@ -75,9 +108,11 @@ export default function App() {
       </main>
     );
   }
-  if (!shared || !shopper) return <main className="page loading">Opening the shop…</main>;
+  if (!shared || !shopper || live === undefined || (shopper.kind === "customer" && !customer)) {
+    return <main className="page loading">Opening the shop…</main>;
+  }
 
-  const props = { shared, shopper, customer, setShopper };
+  const props = { shared, shopper, customer, setShopper, live };
   return (
     <div className="app" style={accentStyle}>
       <header className="topbar">
@@ -91,17 +126,19 @@ export default function App() {
             </a>
           ))}
         </nav>
-        <ShopperPicker customers={shared.customers} shopper={shopper} onChange={setShopper} />
+        <ShopperPicker customers={shared.customers} looked={Object.values(looked)} shopper={shopper} onChange={setShopper} />
       </header>
+      <LiveBar live={live} onCustomer={openCustomer} />
 
       {page === "moments" && <Moments {...props} />}
       {page === "story" && <Story {...props} />}
       {page === "swipe" && <Swipe {...props} />}
 
       <footer className="footer">
-        Real recommendations from the two-tower model <strong>{shared.modelVersion}</strong>, trained on the
-        H&amp;M dataset up to 15 Sep 2020. The sample shoppers are real customers from the test week
-        (16–22 Sep 2020); "really bought" marks what they actually bought that week.
+        Real recommendations from the two-tower model <strong>{live?.modelVersion ?? shared.modelVersion}</strong>,
+        trained on the H&amp;M dataset up to 15 Sep 2020
+        {live ? ", computed live by the API for every change you make" : ", saved for the sample shoppers"}. Customers
+        from the test week (16–22 Sep 2020) show "really bought" for what they actually bought that week.
       </footer>
     </div>
   );

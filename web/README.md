@@ -8,7 +8,7 @@ two-tower model.
 |---|---|
 | **Moments** | Finish the sentence "It's a *Wednesday* in *September*, and I'm shopping *online*". The feed rearranges itself for that moment, every product says why it was picked, and "Reveal what they really bought" shows whether the model found the sample shopper's real purchases |
 | **Style story** | A shopper's style DNA (their colours and product types), their purchase timeline month by month, and "the next chapter": what the model expected for their real next visit |
-| **Swipe** | Like or pass products. Each swipe moves your customer vector towards or away from that product's vector, and the whole feed is re-ranked live in the browser |
+| **Swipe** | Like or pass products. With the live API, every like joins your shopping history and the model re-ranks all 29,009 products on sale; without it, your customer vector is nudged in the browser |
 
 ## Run it
 
@@ -21,13 +21,26 @@ npm run dev
 
 Then open http://localhost:5173.
 
+For **live** recommendations, also start the API, in Ubuntu from the repository root (it
+takes about 30 seconds to load):
+
+```bash
+uvicorn src.api.main:app --port 8000
+```
+
+The dev server forwards `/api` to it (see `vite.config.js`). A green **Live** bar appears
+under the menu, and you can shop as any of the 1,371,980 customers by ID, or press
+**Surprise me** for a random real customer from the test week.
+
 ## Where the data comes from
 
-The site reads static files in `public/data/`, made from the trained model by
-`python -m src.serving.site_data` (run in Ubuntu from the repository root). They hold 19 real
-customers from the test week (16–22 Sep 2020), their top products for every moment, a swipe
-pool with model vectors, and product details. When the FastAPI backend is ready, the same
-pages can call it instead.
+| API running? | Where picks come from |
+|---|---|
+| Yes (**Live**) | Every change of moment, shopper or swipe asks the model through the API (`src/api/`). About 10 ms per answer |
+| No | Static files in `public/data/`, made from the same model by `python -m src.serving.site_data`: 19 real customers from the test week (16–22 Sep 2020), their top products for every moment, a swipe pool with model vectors, and product details |
+
+So the site always works. Both come from the same model: for a sample shopper at the moment
+they really shopped, and for a new visitor, the API's top 24 is the same as the saved top 24.
 
 ## Product photos (optional)
 
